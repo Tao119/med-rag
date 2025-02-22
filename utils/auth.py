@@ -2,7 +2,6 @@ import os
 import json
 import uuid
 import streamlit as st
-from streamlit_javascript import st_javascript
 from streamlit_cookies_manager import EncryptedCookieManager
 
 # 初期化: EncryptedCookieManager を使用
