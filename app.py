@@ -127,8 +127,8 @@ def file_management_page(settings):
         st.success(f"{uploaded_file.name} has been uploaded.")
         update_db(data_dir, db_dir, chunk_size, embedding_model, hf_token)
 
-    st.header("Current Files")
-    files = os.listdir(data_dir)
+    st.header("Current .txt Files")
+    files = [f for f in os.listdir(data_dir) if f.endswith('.txt')]
     if files:
         for file in files:
             file_path = os.path.join(data_dir, file)
@@ -136,14 +136,18 @@ def file_management_page(settings):
             with col1:
                 st.write(file)
             with col2:
-                if st.button(f"Delete", key=file):
-                    os.remove(file_path)
-                    st.warning(f"{file} has been deleted.")
-                    update_db(data_dir, db_dir, chunk_size,
-                              embedding_model, hf_token)
-                    st.rerun()
+                delete_key = f"delete_{file}"
+                if st.button("Delete", key=delete_key):
+                    confirm_delete = st.checkbox(
+                        f"Are you sure you want to delete {file}?", key=f"confirm_{file}")
+                    if confirm_delete:
+                        os.remove(file_path)
+                        st.warning(f"{file} has been deleted.")
+                        update_db(data_dir, db_dir, chunk_size,
+                                  embedding_model, hf_token)
+                        st.rerun()
     else:
-        st.write("No files available.")
+        st.write("No .txt files available.")
 
     settings.update({
         "embedding_model": embedding_model,
