@@ -1,0 +1,28 @@
+{% extends "base.html" %} {% block content %}
+<div class="history">
+  <h2 class="history__title">Query History</h2>
+
+  <div id="historyList" class="history__list">
+    {% for entry in history %}
+    <div class="history__entry">
+      <div class="history__entry-header">
+        <span class="history__entry-timestamp">{{ entry.timestamp }}</span>
+        <button
+          class="button button--danger"
+          onclick="deleteHistory('{{ entry.timestamp }}')"
+        >
+          Delete
+        </button>
+      </div>
+
+      <div class="history__entry-content">
+        <strong>Query:</strong> {{ entry.query }}<br />
+        <strong>System Prompt:</strong> {{ entry.system_prompt }}<br />
+        <strong>Response:</strong>
+        <div class="history__entry-response">{{ entry.response | safe }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
