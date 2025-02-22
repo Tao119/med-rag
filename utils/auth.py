@@ -26,8 +26,6 @@ def register_user(username, password):
     with open(os.path.join(user_path, "user.json"), "w") as f:
         json.dump(user_data, f, indent=4)
 
-    st.session_state["logged_in"] = True
-    st.session_state["username"] = username
     cookies["logged_in"] = "true"
     cookies["username"] = username
     cookies.save()
@@ -44,9 +42,6 @@ def login_user(username, password):
         user_data = json.load(f)
 
     if user_data["password"] == password:
-        # Set session state and cookies
-        st.session_state["logged_in"] = True
-        st.session_state["username"] = username
         cookies["logged_in"] = "true"
         cookies["username"] = username
         cookies.save()
@@ -56,25 +51,14 @@ def login_user(username, password):
 
 
 def logout_user():
-    st.session_state["logged_in"] = False
-    st.session_state["username"] = None
     cookies["logged_in"] = "false"
     cookies["username"] = ""
     cookies.save()
 
 
 def is_logged_in():
-    if "logged_in" in st.session_state:
-        return st.session_state["logged_in"]
     return cookies.get("logged_in") == "true"
 
 
 def get_logged_in_user():
-    if "username" in st.session_state:
-        return st.session_state["username"]
     return cookies.get("username", "")
-
-
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = cookies.get("logged_in") == "true"
-    st.session_state["username"] = cookies.get("username", "")
