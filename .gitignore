@@ -1,0 +1,6 @@
+.env
+/data/
+history.json
+/db/
+.venv/
+**/__pycache__/

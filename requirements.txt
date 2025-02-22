@@ -1,0 +1,13 @@
+python-dotenv
+langchain
+langchain-cli
+langchain-openai
+langchain-community
+langchain-chroma
+langchainhub
+streamlit
+transformers
+torch
+openai
+faiss-cpu
+unstructured
