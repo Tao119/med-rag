@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 from embedding import Embeddings
 from tqdm import tqdm
 
-
 load_dotenv()
 
 azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
@@ -20,12 +19,35 @@ azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION")
 azure_deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 
-DATA_DIR = "./data"
-DB_DIR = "./db"
+DEFAULT_DATA_DIR = "./data"
+DEFAULT_DB_DIR = "./db"
 HISTORY_FILE = "./history.json"
+SETTINGS_FILE = "./settings.json"
 
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(DB_DIR, exist_ok=True)
+os.makedirs(DEFAULT_DATA_DIR, exist_ok=True)
+os.makedirs(DEFAULT_DB_DIR, exist_ok=True)
+
+
+def load_settings():
+    default_settings = {
+        "embedding_model": os.getenv("HUGGINGFACE_EMBEDDING_MODEL_NAME", ""),
+        "hf_token": os.getenv("HUGGINGFACE_API_TOKEN", ""),
+        "chunk_size": 1000,
+        "k": 4,
+        "score_threshold": 0.75,
+        "system_prompt": "あなたは優秀な医療アシスタントです。ユーザーの質問に対して、正確で信頼性の高い医療知識を基に分かりやすく回答してください。専門用語を使用する場合は、一般の人でも理解できるように説明してください。",
+        "data_dir": DEFAULT_DATA_DIR,
+        "db_dir": DEFAULT_DB_DIR
+    }
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return default_settings
+
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(settings, f, ensure_ascii=False, indent=4)
 
 
 def load_history():
@@ -42,8 +64,8 @@ def save_history(entry):
         json.dump(history, f, ensure_ascii=False, indent=4)
 
 
-def update_db(chunk_size, embedding_model, hf_token):
-    loader = DirectoryLoader(DATA_DIR, glob="*.txt")
+def update_db(data_dir, db_dir, chunk_size, embedding_model, hf_token):
+    loader = DirectoryLoader(data_dir, glob="*.txt")
     documents = loader.load()
 
     if not documents:
@@ -59,37 +81,57 @@ def update_db(chunk_size, embedding_model, hf_token):
     Chroma.from_documents(
         tqdm(docs),
         embeddings,
-        persist_directory=DB_DIR,
+        persist_directory=db_dir,
     )
 
     st.success(
         f"✅ {len(docs)} documents were vectorized and database updated.")
 
 
-def file_management_page():
+def file_management_page(settings):
     st.title("File Management")
 
     embedding_model = st.sidebar.text_input(
-        "Embedding model name", os.getenv("HUGGINGFACE_EMBEDDING_MODEL_NAME"))
-    hf_token = st.sidebar.text_input("HuggingFace API token", os.getenv(
-        "HUGGINGFACE_API_TOKEN"), type="password")
-    chunk_size = st.sidebar.slider("Chunk size", 500, 2000, 1000)
+        "Embedding model name", settings["embedding_model"], key="embedding_model"
+    )
+    hf_token = st.sidebar.text_input(
+        "HuggingFace API token", settings["hf_token"], type="password", key="hf_token"
+    )
+    chunk_size = st.sidebar.slider(
+        "Chunk size", 500, 2000, settings["chunk_size"], key="chunk_size"
+    )
+
+    st.sidebar.header("Data Directory Settings")
+    data_dir = st.sidebar.text_input("Data Directory", settings["data_dir"])
+    db_dir = st.sidebar.text_input("Database Directory", settings["db_dir"])
+
+    if st.sidebar.button("Save Paths"):
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+        if not os.path.exists(db_dir):
+            os.makedirs(db_dir)
+        settings["data_dir"] = data_dir
+        settings["db_dir"] = db_dir
+        save_settings(settings)
+        update_db(data_dir, db_dir, chunk_size, embedding_model, hf_token)
+        st.success("Paths updated successfully.")
+        st.rerun()
 
     st.header("Upload New File")
     uploaded_file = st.file_uploader("Upload .txt files", type=["txt"])
 
     if uploaded_file is not None:
-        save_path = os.path.join(DATA_DIR, uploaded_file.name)
+        save_path = os.path.join(data_dir, uploaded_file.name)
         with open(save_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         st.success(f"{uploaded_file.name} has been uploaded.")
-        update_db(chunk_size, embedding_model, hf_token)
+        update_db(data_dir, db_dir, chunk_size, embedding_model, hf_token)
 
     st.header("Current Files")
-    files = os.listdir(DATA_DIR)
+    files = os.listdir(data_dir)
     if files:
         for file in files:
-            file_path = os.path.join(DATA_DIR, file)
+            file_path = os.path.join(data_dir, file)
             col1, col2 = st.columns([4, 1])
             with col1:
                 st.write(file)
@@ -97,30 +139,43 @@ def file_management_page():
                 if st.button(f"Delete", key=file):
                     os.remove(file_path)
                     st.warning(f"{file} has been deleted.")
-                    update_db(chunk_size, embedding_model, hf_token)
+                    update_db(data_dir, db_dir, chunk_size,
+                              embedding_model, hf_token)
                     st.rerun()
     else:
         st.write("No files available.")
 
+    settings.update({
+        "embedding_model": embedding_model,
+        "hf_token": hf_token,
+        "chunk_size": chunk_size
+    })
+    save_settings(settings)
 
-def question_page():
+
+def question_page(settings):
     st.title("RAG Question Page")
 
-    k = st.sidebar.slider("Documents to retrieve (k)", 1, 10, 4)
-    score_threshold = st.sidebar.slider("Score threshold", 0.0, 1.0, 0.75)
+    k = st.sidebar.slider("Documents to retrieve (k)",
+                          1, 10, settings["k"], key="k")
+    score_threshold = st.sidebar.slider(
+        "Score threshold", 0.0, 1.0, settings["score_threshold"], key="score_threshold"
+    )
     embedding_model = st.sidebar.text_input(
-        "Embedding model name", os.getenv("HUGGINGFACE_EMBEDDING_MODEL_NAME"))
-    hf_token = st.sidebar.text_input("HuggingFace API token", os.getenv(
-        "HUGGINGFACE_API_TOKEN"), type="password")
+        "Embedding model name", settings["embedding_model"], key="embedding_model_q"
+    )
+    hf_token = st.sidebar.text_input(
+        "HuggingFace API token", settings["hf_token"], type="password", key="hf_token_q"
+    )
 
     st.header("System Prompt")
-    system_prompt = st.text_area("Define system instructions",
-                                 value="あなたは優秀な医療アシスタントです。ユーザーの質問に対して、正確で信頼性の高い医療知識を基に分かりやすく回答してください。専門用語を使用する場合は、一般の人でも理解できるように説明してください。")
+    system_prompt = st.text_area(
+        "Define system instructions", value=settings["system_prompt"], key="system_prompt")
 
     query = st.text_input("Enter your query", "")
 
     if st.button("Submit") and query:
-        vector_db = Chroma(persist_directory=DB_DIR, embedding_function=Embeddings(
+        vector_db = Chroma(persist_directory=settings["db_dir"], embedding_function=Embeddings(
             model_name=embedding_model, hf_token=hf_token))
 
         retriever = vector_db.as_retriever(
@@ -139,7 +194,6 @@ def question_page():
             model="gpt-4o"
         )
 
-        # Create Prompt Template
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
             ("human", "質問: {question}\n\n関連する情報: {context}\n\n回答:")
@@ -159,14 +213,12 @@ def question_page():
         response = qa_chain.invoke({"query": query})
         answer = response.get("result", "No valid response found.")
 
-        # Display Response
         st.subheader("Response")
         st.markdown(
             f"<div style='border:1px solid #d3d3d3; padding: 10px; border-radius: 5px;'>{answer}</div>",
             unsafe_allow_html=True
         )
 
-        # Save to History
         history_entry = {
             "timestamp": datetime.now().isoformat(),
             "query": query,
@@ -180,7 +232,6 @@ def question_page():
         }
         save_history(history_entry)
 
-        # Retrieved Docs
         with st.expander("Retrieved Documents with Scores", expanded=False):
             retrieved_docs = retriever.invoke(query)
             for i, doc in enumerate(retrieved_docs):
@@ -188,6 +239,15 @@ def question_page():
                 st.write(doc.page_content)
                 st.write(
                     f"Relevance score: {doc.metadata.get('relevance_score', 'N/A')}")
+
+    settings.update({
+        "k": k,
+        "score_threshold": score_threshold,
+        "embedding_model": embedding_model,
+        "hf_token": hf_token,
+        "system_prompt": system_prompt
+    })
+    save_settings(settings)
 
 
 def history_page():
@@ -223,14 +283,17 @@ def history_page():
 
 
 def main():
+    settings = load_settings()
+
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
-        "Go to", ["RAG Question Page", "File Management", "Query History"])
+        "Go to", ["RAG Question Page", "File Management", "Query History"]
+    )
 
     if page == "File Management":
-        file_management_page()
+        file_management_page(settings)
     elif page == "RAG Question Page":
-        question_page()
+        question_page(settings)
     elif page == "Query History":
         history_page()
 
