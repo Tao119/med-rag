@@ -129,23 +129,34 @@ def file_management_page(settings):
 
     st.header("Current .txt Files")
     files = [f for f in os.listdir(data_dir) if f.endswith('.txt')]
+
+    # ファイル削除処理の修正
     if files:
         for file in files:
             file_path = os.path.join(data_dir, file)
-            col1, col2 = st.columns([4, 1])
+            # 3列に分割（ファイル名、削除ボタン、確認チェックボックス）
+            col1, col2, col3 = st.columns([4, 1, 1])
+
             with col1:
-                st.write(file)
+                st.write(file)  # ファイル名表示
+
+            # チェックボックスで削除確認
             with col2:
-                delete_key = f"delete_{file}"
-                if st.button("Delete", key=delete_key):
-                    confirm_delete = st.checkbox(
-                        f"Are you sure you want to delete {file}?", key=f"confirm_{file}")
+                confirm_delete = st.checkbox(
+                    f"Confirm Delete", key=f"confirm_{file}")
+
+            # 削除ボタン
+            with col3:
+                if st.button(f"Delete", key=f"delete_{file}"):
                     if confirm_delete:
                         os.remove(file_path)
-                        st.warning(f"{file} has been deleted.")
+                        st.success(f"{file} has been deleted.")
                         update_db(data_dir, db_dir, chunk_size,
                                   embedding_model, hf_token)
                         st.rerun()
+                    else:
+                        st.warning(
+                            "Please confirm deletion by checking the box.")
     else:
         st.write("No .txt files available.")
 
