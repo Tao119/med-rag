@@ -1,363 +1,74 @@
 import streamlit as st
-import os
-import json
-from datetime import datetime
-from langchain_community.document_loaders import DirectoryLoader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_chroma import Chroma
-from langchain_openai import AzureChatOpenAI
-from langchain.chains import RetrievalQA
-from langchain.prompts import ChatPromptTemplate
+from utils.auth import login_user, register_user, logout_user, is_logged_in, get_logged_in_user, get_user_path
+from pages_data.file_management import file_management_page
+from pages_data.question_page import question_page
+from pages_data.history_page import history_page
 from dotenv import load_dotenv
-from embedding import Embeddings
-from tqdm import tqdm
 
 load_dotenv()
 
-azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
-azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION")
-azure_deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
-
-DEFAULT_DATA_DIR = "./data"
-DEFAULT_DB_DIR = "./db"
-HISTORY_FILE = "./history.json"
-SETTINGS_FILE = "./settings.json"
-
-os.makedirs(DEFAULT_DATA_DIR, exist_ok=True)
-os.makedirs(DEFAULT_DB_DIR, exist_ok=True)
-
-
-def load_settings():
-    default_settings = {
-        "embedding_model": os.getenv("HUGGINGFACE_EMBEDDING_MODEL_NAME", ""),
-        "hf_token": os.getenv("HUGGINGFACE_API_TOKEN", ""),
-        "chunk_size": 512,
-        "chunk_overlap": 25,
-        "k": 4,
-        "score_threshold": 0.75,
-        "system_prompt": "あなたは優秀な医療アシスタントです。ユーザーの質問に対して、正確で信頼性の高い医療知識を基に分かりやすく回答してください。",
-        "data_dir": DEFAULT_DATA_DIR,
-        "db_dir": DEFAULT_DB_DIR
-    }
-
-    if os.path.exists(SETTINGS_FILE):
-        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-            settings = json.load(f)
-            merged_settings = {**default_settings, **settings}
-            return merged_settings
-    else:
-        save_settings(default_settings)
-        return default_settings
-
-
-def save_settings(settings):
-    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-        json.dump(settings, f, ensure_ascii=False, indent=4)
-
-
-def load_history():
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
-
-
-def save_history(entry):
-    history = load_history()
-    history.append(entry)
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=4)
-
-
-def update_db(data_dir, db_dir, chunk_size, chunk_overlap, embedding_model, hf_token):
-    loader = DirectoryLoader(data_dir, glob="*.txt")
-    documents = loader.load()
-
-    if not documents:
-        st.warning("No documents found to update the database.")
-        return
-
-    text_splitter = CharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=int(chunk_size * (chunk_overlap / 100))
-    )
-    docs = text_splitter.split_documents(documents)
-
-    embeddings = Embeddings(model_name=embedding_model, hf_token=hf_token)
-
-    Chroma.from_documents(
-        tqdm(docs),
-        embeddings,
-        persist_directory=db_dir,
-    )
-
-    st.success(
-        f"✅ {len(docs)} documents were vectorized and database updated with {chunk_overlap}% overlap."
-    )
-
-
-def file_management_page(settings):
-    st.title("File Management")
-
-    embedding_model = st.sidebar.text_input(
-        "Embedding model name", settings.get("embedding_model", ""), key="embedding_model"
-    )
-    hf_token = st.sidebar.text_input(
-        "HuggingFace API token", settings.get("hf_token", ""), type="password", key="hf_token"
-    )
-    chunk_size = st.sidebar.slider(
-        "Chunk size", 500, 2000, settings.get("chunk_size", 1000), key="chunk_size"
-    )
-
-    chunk_overlap = st.sidebar.slider(
-        "Chunk Overlap (%)", 0, 50, settings.get("chunk_overlap", 25), key="chunk_overlap"
-    )
-
-    st.sidebar.header("Data Directory Settings")
-    data_dir = st.sidebar.text_input(
-        "Data Directory", settings.get("data_dir", DEFAULT_DATA_DIR))
-    db_dir = st.sidebar.text_input(
-        "Database Directory", settings.get("db_dir", DEFAULT_DB_DIR))
-
-    if st.sidebar.button("Save Paths"):
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
-        if not os.path.exists(db_dir):
-            os.makedirs(db_dir)
-        settings["data_dir"] = data_dir
-        settings["db_dir"] = db_dir
-        save_settings(settings)
-        update_db(data_dir, db_dir, chunk_size,
-                  chunk_overlap, embedding_model, hf_token)
-        st.success("Paths updated successfully.")
-        st.rerun()
-
-    tab1, tab2 = st.tabs(["Upload", "Create"])
-
-    with tab1:
-        st.header("Upload New File")
-        uploaded_file = st.file_uploader("Upload .txt files", type=["txt"])
-
-        if uploaded_file is not None:
-            save_path = os.path.join(data_dir, uploaded_file.name)
-
-            if os.path.exists(save_path):
-                st.error(
-                    f"A file named '{uploaded_file.name}' already exists. Please use a different name.")
-            else:
-                with open(save_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                st.success(f"{uploaded_file.name} has been uploaded.")
-                update_db(data_dir, db_dir, chunk_size, chunk_overlap,
-                          embedding_model, hf_token)
-                st.rerun()
-
-    with tab2:
-        st.header("Create New File")
-        new_file_name = st.text_input("Enter file name (without extension):")
-        new_file_content = st.text_area("Enter file content:")
-
-        if st.button("Create File"):
-            if not new_file_name:
-                st.error("Please enter a file name.")
-            elif not new_file_content:
-                st.error("Please enter some content for the file.")
-            else:
-                new_file_path = os.path.join(data_dir, f"{new_file_name}.txt")
-                if os.path.exists(new_file_path):
-                    st.error(
-                        f"A file named '{new_file_name}.txt' already exists.")
-                else:
-                    with open(new_file_path, "w", encoding="utf-8") as f:
-                        f.write(new_file_content)
-                    st.success(f"File '{new_file_name}.txt' has been created.")
-                    update_db(data_dir, db_dir, chunk_size, chunk_overlap,
-                              embedding_model, hf_token)
-                    st.rerun()
-
-    st.header("Current .txt Files")
-    files = [f for f in os.listdir(data_dir) if f.endswith('.txt')]
-
-    if files:
-        for file in files:
-            file_path = os.path.join(data_dir, file)
-
-            col1, col2, col3 = st.columns([4, 1, 1])
-
-            with col1:
-                st.write(file)
-
-            with col2:
-                confirm_delete = st.checkbox(
-                    "Confirm Delete", key=f"confirm_{file}")
-
-            with col3:
-                if st.button("Delete", key=f"delete_{file}"):
-                    if confirm_delete:
-                        os.remove(file_path)
-                        st.success(f"{file} has been deleted.")
-                        update_db(data_dir, db_dir, chunk_size, chunk_overlap,
-                                  embedding_model, hf_token)
-                        st.rerun()
-                    else:
-                        st.warning(
-                            "Please confirm deletion by checking the box.")
-    else:
-        st.write("No .txt files available.")
-
-    settings.update({
-        "embedding_model": embedding_model,
-        "hf_token": hf_token,
-        "chunk_size": chunk_size,
-        "chunk_overlap": chunk_overlap
-    })
-    save_settings(settings)
-
-
-def question_page(settings):
-    st.title("RAG Question Page")
-
-    k = st.sidebar.slider("Documents to retrieve (k)",
-                          1, 10, settings["k"], key="k")
-    score_threshold = st.sidebar.slider(
-        "Score threshold", 0.0, 1.0, settings["score_threshold"], key="score_threshold"
-    )
-    embedding_model = st.sidebar.text_input(
-        "Embedding model name", settings["embedding_model"], key="embedding_model_q"
-    )
-    hf_token = st.sidebar.text_input(
-        "HuggingFace API token", settings["hf_token"], type="password", key="hf_token_q"
-    )
-
-    st.header("System Prompt")
-    system_prompt = st.text_area(
-        "Define system instructions", value=settings["system_prompt"], key="system_prompt")
-
-    query = st.text_input("Enter your query", "")
-
-    if st.button("Submit") and query:
-        vector_db = Chroma(persist_directory=settings["db_dir"], embedding_function=Embeddings(
-            model_name=embedding_model, hf_token=hf_token))
-
-        retriever = vector_db.as_retriever(
-            search_type="similarity_score_threshold",
-            search_kwargs={
-                "score_threshold": score_threshold,
-                "k": k
-            }
-        )
-
-        llm = AzureChatOpenAI(
-            azure_endpoint=azure_endpoint,
-            api_version=azure_api_version,
-            azure_deployment=azure_deployment_name,
-            api_key=azure_api_key,
-            model="gpt-4o"
-        )
-
-        prompt_template = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            ("human", "質問: {question}\n\n関連する情報: {context}\n\n回答:")
-        ])
-
-        qa_chain = RetrievalQA.from_chain_type(
-            llm,
-            retriever=retriever,
-            return_source_documents=True,
-            chain_type="stuff",
-            chain_type_kwargs={
-                "prompt": prompt_template,
-                "document_variable_name": "context"
-            }
-        )
-
-        response = qa_chain.invoke({"query": query})
-        answer = response.get("result", "No valid response found.")
-
-        st.subheader("Response")
-        st.markdown(
-            f"<div style='border:1px solid #d3d3d3; padding: 10px; border-radius: 5px;'>{answer}</div>",
-            unsafe_allow_html=True
-        )
-
-        history_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "query": query,
-            "system_prompt": system_prompt,
-            "settings": {
-                "k": k,
-                "score_threshold": score_threshold,
-                "embedding_model": embedding_model
-            },
-            "response": answer
-        }
-        save_history(history_entry)
-
-        with st.expander("Retrieved Documents with Scores", expanded=False):
-            retrieved_docs = retriever.invoke(query)
-            for i, doc in enumerate(retrieved_docs):
-                st.write(f"**Document {i + 1}:**")
-                st.write(doc.page_content)
-                st.write(
-                    f"Relevance score: {doc.metadata.get('relevance_score', 'N/A')}")
-
-    settings.update({
-        "k": k,
-        "score_threshold": score_threshold,
-        "embedding_model": embedding_model,
-        "hf_token": hf_token,
-        "system_prompt": system_prompt
-    })
-    save_settings(settings)
-
-
-def history_page():
-    st.title("Query History")
-
-    history = load_history()
-    if not history:
-        st.write("No query history found.")
-        return
-
-    for idx, entry in enumerate(reversed(history)):
-        with st.expander(f"Query at {entry['timestamp']}"):
-            st.write(f"**Query:** {entry['query']}")
-            st.write(f"**System Prompt:** {entry['system_prompt']}")
-            st.write(f"**Settings:**")
-            st.write(f"- Documents to retrieve (k): {entry['settings']['k']}")
-            st.write(
-                f"- Score threshold: {entry['settings']['score_threshold']}")
-            st.write(
-                f"- Embedding model: {entry['settings']['embedding_model']}")
-            st.write("**Response:**")
-            st.markdown(
-                f"<div style='border:1px solid #d3d3d3; padding: 10px; border-radius: 5px;'>{entry['response']}</div>",
-                unsafe_allow_html=True
-            )
-
-            if st.button("Delete", key=f"delete_{idx}"):
-                history.pop(len(history) - idx - 1)
-                with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-                    json.dump(history, f, ensure_ascii=False, indent=4)
-                st.success("Entry deleted.")
-                st.rerun()
-
 
 def main():
-    settings = load_settings()
+    st.set_page_config(page_title="RAG App", layout="wide")
+
+    if "logged_in" not in st.session_state:
+        st.session_state["logged_in"] = False
+
+    if not is_logged_in():
+        show_login_page()
+    else:
+        show_main_app()
+
+
+def show_login_page():
+    st.title("Login / Register")
+
+    tab1, tab2 = st.tabs(["Login", "Register"])
+
+    with tab1:
+        username = st.text_input("Username", key="login_user")
+        password = st.text_input("Password", type="password", key="login_pass")
+        if st.button("Login"):
+            success, msg = login_user(username, password)
+            if success:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+
+    with tab2:
+        new_username = st.text_input("New Username", key="reg_user")
+        new_password = st.text_input(
+            "New Password", type="password", key="reg_pass")
+        if st.button("Register"):
+            success, msg = register_user(new_username, new_password)
+            if success:
+                st.success(msg)
+                login_user(new_username, new_password)
+                st.rerun()
+            else:
+                st.error(msg)
+
+
+def show_main_app():
+    username = get_logged_in_user()
+    user_path = get_user_path(username)
+
+    st.sidebar.title(f"Welcome, {username}")
+    if st.sidebar.button("Logout"):
+        logout_user()
+        st.rerun()
 
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
-        "Go to", ["RAG Question Page", "File Management", "Query History"]
-    )
+        "Go to", ["RAG Question Page", "File Management", "Query History"])
 
     if page == "File Management":
-        file_management_page(settings)
+        file_management_page(user_path)
     elif page == "RAG Question Page":
-        question_page(settings)
+        question_page(user_path, username)
     elif page == "Query History":
-        history_page()
+        history_page(user_path)
 
 
 if __name__ == "__main__":

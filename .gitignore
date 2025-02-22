@@ -1,7 +1,6 @@
 .env
 /data/
-history.json
 /db/
 .venv/
 **/__pycache__/
-settings.json
+/users/
