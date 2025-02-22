@@ -32,17 +32,23 @@ def load_settings():
     default_settings = {
         "embedding_model": os.getenv("HUGGINGFACE_EMBEDDING_MODEL_NAME", ""),
         "hf_token": os.getenv("HUGGINGFACE_API_TOKEN", ""),
-        "chunk_size": 1000,
+        "chunk_size": 512,
+        "chunk_overlap": 25,
         "k": 4,
         "score_threshold": 0.75,
-        "system_prompt": "あなたは優秀な医療アシスタントです。ユーザーの質問に対して、正確で信頼性の高い医療知識を基に分かりやすく回答してください。専門用語を使用する場合は、一般の人でも理解できるように説明してください。",
+        "system_prompt": "あなたは優秀な医療アシスタントです。ユーザーの質問に対して、正確で信頼性の高い医療知識を基に分かりやすく回答してください。",
         "data_dir": DEFAULT_DATA_DIR,
         "db_dir": DEFAULT_DB_DIR
     }
+
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return default_settings
+            settings = json.load(f)
+            merged_settings = {**default_settings, **settings}
+            return merged_settings
+    else:
+        save_settings(default_settings)
+        return default_settings
 
 
 def save_settings(settings):
@@ -64,7 +70,7 @@ def save_history(entry):
         json.dump(history, f, ensure_ascii=False, indent=4)
 
 
-def update_db(data_dir, db_dir, chunk_size, embedding_model, hf_token):
+def update_db(data_dir, db_dir, chunk_size, chunk_overlap, embedding_model, hf_token):
     loader = DirectoryLoader(data_dir, glob="*.txt")
     documents = loader.load()
 
@@ -73,7 +79,9 @@ def update_db(data_dir, db_dir, chunk_size, embedding_model, hf_token):
         return
 
     text_splitter = CharacterTextSplitter(
-        chunk_size=chunk_size, chunk_overlap=0)
+        chunk_size=chunk_size,
+        chunk_overlap=int(chunk_size * (chunk_overlap / 100))
+    )
     docs = text_splitter.split_documents(documents)
 
     embeddings = Embeddings(model_name=embedding_model, hf_token=hf_token)
@@ -85,25 +93,32 @@ def update_db(data_dir, db_dir, chunk_size, embedding_model, hf_token):
     )
 
     st.success(
-        f"✅ {len(docs)} documents were vectorized and database updated.")
+        f"✅ {len(docs)} documents were vectorized and database updated with {chunk_overlap}% overlap."
+    )
 
 
 def file_management_page(settings):
     st.title("File Management")
 
     embedding_model = st.sidebar.text_input(
-        "Embedding model name", settings["embedding_model"], key="embedding_model"
+        "Embedding model name", settings.get("embedding_model", ""), key="embedding_model"
     )
     hf_token = st.sidebar.text_input(
-        "HuggingFace API token", settings["hf_token"], type="password", key="hf_token"
+        "HuggingFace API token", settings.get("hf_token", ""), type="password", key="hf_token"
     )
     chunk_size = st.sidebar.slider(
-        "Chunk size", 500, 2000, settings["chunk_size"], key="chunk_size"
+        "Chunk size", 500, 2000, settings.get("chunk_size", 1000), key="chunk_size"
+    )
+
+    chunk_overlap = st.sidebar.slider(
+        "Chunk Overlap (%)", 0, 50, settings.get("chunk_overlap", 25), key="chunk_overlap"
     )
 
     st.sidebar.header("Data Directory Settings")
-    data_dir = st.sidebar.text_input("Data Directory", settings["data_dir"])
-    db_dir = st.sidebar.text_input("Database Directory", settings["db_dir"])
+    data_dir = st.sidebar.text_input(
+        "Data Directory", settings.get("data_dir", DEFAULT_DATA_DIR))
+    db_dir = st.sidebar.text_input(
+        "Database Directory", settings.get("db_dir", DEFAULT_DB_DIR))
 
     if st.sidebar.button("Save Paths"):
         if not os.path.exists(data_dir):
@@ -113,45 +128,76 @@ def file_management_page(settings):
         settings["data_dir"] = data_dir
         settings["db_dir"] = db_dir
         save_settings(settings)
-        update_db(data_dir, db_dir, chunk_size, embedding_model, hf_token)
+        update_db(data_dir, db_dir, chunk_size,
+                  chunk_overlap, embedding_model, hf_token)
         st.success("Paths updated successfully.")
         st.rerun()
 
-    st.header("Upload New File")
-    uploaded_file = st.file_uploader("Upload .txt files", type=["txt"])
+    tab1, tab2 = st.tabs(["Upload", "Create"])
 
-    if uploaded_file is not None:
-        save_path = os.path.join(data_dir, uploaded_file.name)
-        with open(save_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        st.success(f"{uploaded_file.name} has been uploaded.")
-        update_db(data_dir, db_dir, chunk_size, embedding_model, hf_token)
+    with tab1:
+        st.header("Upload New File")
+        uploaded_file = st.file_uploader("Upload .txt files", type=["txt"])
+
+        if uploaded_file is not None:
+            save_path = os.path.join(data_dir, uploaded_file.name)
+
+            if os.path.exists(save_path):
+                st.error(
+                    f"A file named '{uploaded_file.name}' already exists. Please use a different name.")
+            else:
+                with open(save_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                st.success(f"{uploaded_file.name} has been uploaded.")
+                update_db(data_dir, db_dir, chunk_size, chunk_overlap,
+                          embedding_model, hf_token)
+                st.rerun()
+
+    with tab2:
+        st.header("Create New File")
+        new_file_name = st.text_input("Enter file name (without extension):")
+        new_file_content = st.text_area("Enter file content:")
+
+        if st.button("Create File"):
+            if not new_file_name:
+                st.error("Please enter a file name.")
+            elif not new_file_content:
+                st.error("Please enter some content for the file.")
+            else:
+                new_file_path = os.path.join(data_dir, f"{new_file_name}.txt")
+                if os.path.exists(new_file_path):
+                    st.error(
+                        f"A file named '{new_file_name}.txt' already exists.")
+                else:
+                    with open(new_file_path, "w", encoding="utf-8") as f:
+                        f.write(new_file_content)
+                    st.success(f"File '{new_file_name}.txt' has been created.")
+                    update_db(data_dir, db_dir, chunk_size, chunk_overlap,
+                              embedding_model, hf_token)
+                    st.rerun()
 
     st.header("Current .txt Files")
     files = [f for f in os.listdir(data_dir) if f.endswith('.txt')]
 
-    # ファイル削除処理の修正
     if files:
         for file in files:
             file_path = os.path.join(data_dir, file)
-            # 3列に分割（ファイル名、削除ボタン、確認チェックボックス）
+
             col1, col2, col3 = st.columns([4, 1, 1])
 
             with col1:
-                st.write(file)  # ファイル名表示
+                st.write(file)
 
-            # チェックボックスで削除確認
             with col2:
                 confirm_delete = st.checkbox(
-                    f"Confirm Delete", key=f"confirm_{file}")
+                    "Confirm Delete", key=f"confirm_{file}")
 
-            # 削除ボタン
             with col3:
-                if st.button(f"Delete", key=f"delete_{file}"):
+                if st.button("Delete", key=f"delete_{file}"):
                     if confirm_delete:
                         os.remove(file_path)
                         st.success(f"{file} has been deleted.")
-                        update_db(data_dir, db_dir, chunk_size,
+                        update_db(data_dir, db_dir, chunk_size, chunk_overlap,
                                   embedding_model, hf_token)
                         st.rerun()
                     else:
@@ -163,7 +209,8 @@ def file_management_page(settings):
     settings.update({
         "embedding_model": embedding_model,
         "hf_token": hf_token,
-        "chunk_size": chunk_size
+        "chunk_size": chunk_size,
+        "chunk_overlap": chunk_overlap
     })
     save_settings(settings)
 
