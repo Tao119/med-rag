@@ -9,14 +9,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+st.set_page_config(page_title="RAG App", layout="wide")
+
 
 def main():
-    st.set_page_config(page_title="RAG App", layout="wide")
-
     if "logged_in" not in st.session_state:
-        st.session_state["logged_in"] = False
+        st.session_state["logged_in"] = is_logged_in()
 
-    if not is_logged_in():
+    if not st.session_state["logged_in"]:
         show_login_page()
     else:
         show_main_app()
@@ -27,6 +27,7 @@ def show_login_page():
 
     tab1, tab2 = st.tabs(["Login", "Register"])
 
+    # Login Tab
     with tab1:
         username = st.text_input("Username", key="login_user")
         password = st.text_input("Password", type="password", key="login_pass")
@@ -34,11 +35,14 @@ def show_login_page():
             success, msg = login_user(username, password)
             if success:
                 st.success(msg)
+                st.session_state["logged_in"] = True
+                st.session_state["username"] = username
                 initialize_user_environment(username)
-                st.rerun()
+                st.rerun()  # Rerun to reflect login
             else:
                 st.error(msg)
 
+    # Register Tab
     with tab2:
         new_username = st.text_input("New Username", key="reg_user")
         new_password = st.text_input(
@@ -48,19 +52,28 @@ def show_login_page():
             if success:
                 st.success(msg)
                 login_user(new_username, new_password)
+                st.session_state["logged_in"] = True
+                st.session_state["username"] = new_username
                 initialize_user_environment(new_username)
-                st.rerun()
+                st.rerun()  # Rerun to reflect registration and login
             else:
                 st.error(msg)
 
 
 def show_main_app():
     username = get_logged_in_user()
+    if not username:
+        st.error("Session expired. Please log in again.")
+        logout_user()
+        st.rerun()
+
     user_path = get_user_path(username)
 
     st.sidebar.title(f"Welcome, {username}")
     if st.sidebar.button("Logout"):
         logout_user()
+        st.session_state["logged_in"] = False
+        st.session_state["username"] = None
         st.rerun()
 
     st.sidebar.title("Navigation")
