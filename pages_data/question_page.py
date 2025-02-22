@@ -73,16 +73,6 @@ def question_page(user_path, username):
         st.markdown(
             f"<div style='border:1px solid #d3d3d3; padding: 10px; border-radius: 5px;'>{answer}</div>", unsafe_allow_html=True)
 
-        history_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "query": query,
-            "system_prompt": system_prompt,
-            "settings": {"k": k, "score_threshold": score_threshold, "embedding_model": embedding_model},
-            "response": answer,
-            "username": username
-        }
-        save_history(user_path, history_entry)
-
         with st.expander("Retrieved Documents with Scores", expanded=False):
             retrieved_docs = retriever.invoke(query)
             for i, doc in enumerate(retrieved_docs):
@@ -90,6 +80,24 @@ def question_page(user_path, username):
                 st.write(doc.page_content)
                 st.write(
                     f"Relevance score: {doc.metadata.get('relevance_score', 'N/A')}")
+
+        history_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "query": query,
+            "system_prompt": system_prompt,
+            "settings": {"k": k, "score_threshold": score_threshold, "embedding_model": embedding_model},
+            "response": answer,
+            "username": username,
+            "retrieved_docs": [
+                {
+                    "content": str(doc.page_content),
+                    "score": doc.metadata.get('relevance_score', 'N/A')
+                }
+                for doc in retrieved_docs
+            ]
+        }
+        print(history_entry)
+        save_history(user_path, history_entry)
 
     settings.update({"k": k, "score_threshold": score_threshold,
                     "embedding_model": embedding_model, "hf_token": hf_token, "system_prompt": system_prompt})

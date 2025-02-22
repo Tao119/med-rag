@@ -36,6 +36,14 @@ def history_page(user_path):
                         f"<div style='border:1px solid #d3d3d3; padding: 10px; border-radius: 5px;'>{entry['response']}</div>",
                         unsafe_allow_html=True
                     )
+                    retrieved_docs = entry.get('retrieved_docs', [])
+                    if retrieved_docs:
+                        st.write("### Retrieved Documents with Scores")
+                        for i, doc in enumerate(retrieved_docs):
+                            st.write(f"**Document {i + 1}:**")
+                            st.write(doc.get('content', 'No content'))
+                            st.write(
+                                f"Relevance score: {doc.get('score')}")
 
                     if st.button("Delete", key=f"user_delete_{idx}"):
                         user_history.remove(entry)

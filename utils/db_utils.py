@@ -12,11 +12,19 @@ os.makedirs(USER_DATA_DIR, exist_ok=True)
 
 def load_history(user_path):
     history_file = os.path.join(user_path, "history.json")
+
     if not os.path.exists(history_file):
         return []
 
-    with open(history_file, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(history_file, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                return []
+            return json.loads(content)
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}")
+        return []
 
 
 def load_global_history():
