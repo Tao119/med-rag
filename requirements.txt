@@ -11,3 +11,5 @@ torch
 openai
 faiss-cpu
 unstructured
+watchdog
+streamlit_cookies_manager

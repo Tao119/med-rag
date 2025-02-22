@@ -1,6 +1,11 @@
 import os
 import json
 import streamlit as st
+from streamlit_cookies_manager import EncryptedCookieManager
+
+cookies = EncryptedCookieManager(prefix="medai_", password="your-secret-key")
+if not cookies.ready():
+    st.stop()
 
 USER_DATA_DIR = "users"
 os.makedirs(USER_DATA_DIR, exist_ok=True)
@@ -21,6 +26,10 @@ def register_user(username, password):
     with open(os.path.join(user_path, "user.json"), "w") as f:
         json.dump(user_data, f, indent=4)
 
+    cookies["logged_in"] = "true"
+    cookies["username"] = username
+    cookies.save()
+
     return True, "Registration successful."
 
 
@@ -33,21 +42,23 @@ def login_user(username, password):
         user_data = json.load(f)
 
     if user_data["password"] == password:
-        st.session_state["logged_in"] = True
-        st.session_state["username"] = username
+        cookies["logged_in"] = "true"
+        cookies["username"] = username
+        cookies.save()
         return True, "Login successful."
     else:
         return False, "Incorrect password."
 
 
 def logout_user():
-    st.session_state["logged_in"] = False
-    st.session_state["username"] = None
+    cookies["logged_in"] = "false"
+    cookies["username"] = ""
+    cookies.save()
 
 
 def is_logged_in():
-    return st.session_state.get("logged_in", False)
+    return cookies.get("logged_in") == "true"
 
 
 def get_logged_in_user():
-    return st.session_state.get("username", "")
+    return cookies.get("username", "")
