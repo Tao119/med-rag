@@ -67,6 +67,7 @@ source .venv/bin/activate  # Mac/Linux
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
+patch -p2 -d $(pip show langchain_core | grep Location | awk '{print $2}')/langchain_core -i $(pwd)/langchain_core.patch
 ```
 
 ### 4️⃣ **環境変数の設定**
