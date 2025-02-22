@@ -83,6 +83,14 @@ def question_page(user_path, username):
         }
         save_history(user_path, history_entry)
 
+        with st.expander("Retrieved Documents with Scores", expanded=False):
+            retrieved_docs = retriever.invoke(query)
+            for i, doc in enumerate(retrieved_docs):
+                st.write(f"**Document {i + 1}:**")
+                st.write(doc.page_content)
+                st.write(
+                    f"Relevance score: {doc.metadata.get('relevance_score', 'N/A')}")
+
     settings.update({"k": k, "score_threshold": score_threshold,
                     "embedding_model": embedding_model, "hf_token": hf_token, "system_prompt": system_prompt})
     save_settings(user_path, settings)
