@@ -17,7 +17,6 @@ def load_settings(user_path):
         "score_threshold": 0.75,
         "system_prompt": "あなたは優秀な医療アシスタントです。ユーザーの質問に対して、正確で信頼性の高い医療知識を基に分かりやすく回答してください。",
         "data_dir": "./data",
-        "db_dir": "./db"
     }
 
     if not os.path.exists(settings_file):

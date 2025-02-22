@@ -1,8 +1,10 @@
 import streamlit as st
+import os
 from utils.auth import login_user, register_user, logout_user, is_logged_in, get_logged_in_user, get_user_path
-from pages_data.file_management import file_management_page
+from pages_data.file_management import file_management_page, update_db
 from pages_data.question_page import question_page
 from pages_data.history_page import history_page
+from utils.settings_utils import load_settings
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -32,6 +34,7 @@ def show_login_page():
             success, msg = login_user(username, password)
             if success:
                 st.success(msg)
+                initialize_user_environment(username)
                 st.rerun()
             else:
                 st.error(msg)
@@ -45,6 +48,7 @@ def show_login_page():
             if success:
                 st.success(msg)
                 login_user(new_username, new_password)
+                initialize_user_environment(new_username)
                 st.rerun()
             else:
                 st.error(msg)
@@ -69,6 +73,34 @@ def show_main_app():
         question_page(user_path, username)
     elif page == "Query History":
         history_page(user_path)
+
+
+def initialize_user_environment(username):
+    user_path = get_user_path(username)
+    user_db_dir = os.path.join(user_path, "db")
+    data_dir = "./data"
+
+    settings = load_settings(user_path)
+
+    if not os.path.exists(user_db_dir):
+        os.makedirs(user_db_dir)
+        st.info(f"Database directory created for user: {username}")
+
+        embedding_model = settings.get("embedding_model", "default-model")
+        hf_token = settings.get("hf_token", "")
+        chunk_size = settings.get("chunk_size", 512)
+        chunk_overlap = settings.get("chunk_overlap", 25)
+
+        update_db(
+            data_dir=data_dir,
+            db_dir=user_db_dir,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            embedding_model=embedding_model,
+            hf_token=hf_token
+        )
+
+        st.success("Database initialized successfully!")
 
 
 if __name__ == "__main__":

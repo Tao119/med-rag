@@ -9,9 +9,7 @@ from langchain_chroma import Chroma
 from embedding import Embeddings
 from tqdm import tqdm
 
-
 DEFAULT_DATA_DIR = "./data"
-DEFAULT_DB_DIR = "./db"
 
 
 def update_db(data_dir, db_dir, chunk_size, chunk_overlap, embedding_model, hf_token):
@@ -42,12 +40,10 @@ def update_db(data_dir, db_dir, chunk_size, chunk_overlap, embedding_model, hf_t
 
 
 def file_management_page(user_path):
-    # Load user-specific settings
     settings = load_settings(user_path)
 
     st.title("File Management")
 
-    # Sidebar configuration for embeddings and chunking
     embedding_model = st.sidebar.text_input(
         "Embedding model name", settings.get("embedding_model", ""), key="embedding_model"
     )
@@ -62,16 +58,16 @@ def file_management_page(user_path):
         "Chunk Overlap (%)", 0, 50, settings.get("chunk_overlap", 25), key="chunk_overlap"
     )
 
-    # Directories for data and DB
+    user_db_dir = os.path.join(user_path, "db")
+    os.makedirs(DEFAULT_DATA_DIR, exist_ok=True)
+    os.makedirs(user_db_dir, exist_ok=True)
+
     st.sidebar.header("Data Directory Settings")
     data_dir = st.sidebar.text_input(
-        "Data Directory", settings.get("data_dir", DEFAULT_DATA_DIR))
-    db_dir = st.sidebar.text_input(
-        "Database Directory", settings.get("db_dir", DEFAULT_DB_DIR))
+        "Data Directory", DEFAULT_DATA_DIR, disabled=True)
+    db_dir = st.sidebar.text_input("Database Directory", user_db_dir)
 
     if st.sidebar.button("Save Paths"):
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
         if not os.path.exists(db_dir):
             os.makedirs(db_dir)
         settings["data_dir"] = data_dir
@@ -82,7 +78,6 @@ def file_management_page(user_path):
         st.success("Paths updated successfully.")
         st.rerun()
 
-    # Tabs for Uploading and Creating Files
     tab1, tab2 = st.tabs(["Upload", "Create"])
 
     with tab1:
@@ -90,7 +85,7 @@ def file_management_page(user_path):
         uploaded_file = st.file_uploader("Upload .txt files", type=["txt"])
 
         if uploaded_file is not None:
-            save_path = os.path.join(data_dir, uploaded_file.name)
+            save_path = os.path.join(DEFAULT_DATA_DIR, uploaded_file.name)
 
             if os.path.exists(save_path):
                 st.error(
@@ -99,7 +94,7 @@ def file_management_page(user_path):
                 with open(save_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
                 st.success(f"{uploaded_file.name} has been uploaded.")
-                update_db(data_dir, db_dir, chunk_size,
+                update_db(DEFAULT_DATA_DIR, user_db_dir, chunk_size,
                           chunk_overlap, embedding_model, hf_token)
                 st.rerun()
 
@@ -114,7 +109,8 @@ def file_management_page(user_path):
             elif not new_file_content:
                 st.error("Please enter some content for the file.")
             else:
-                new_file_path = os.path.join(data_dir, f"{new_file_name}.txt")
+                new_file_path = os.path.join(
+                    DEFAULT_DATA_DIR, f"{new_file_name}.txt")
                 if os.path.exists(new_file_path):
                     st.error(
                         f"A file named '{new_file_name}.txt' already exists.")
@@ -122,17 +118,16 @@ def file_management_page(user_path):
                     with open(new_file_path, "w", encoding="utf-8") as f:
                         f.write(new_file_content)
                     st.success(f"File '{new_file_name}.txt' has been created.")
-                    update_db(data_dir, db_dir, chunk_size,
+                    update_db(DEFAULT_DATA_DIR, user_db_dir, chunk_size,
                               chunk_overlap, embedding_model, hf_token)
                     st.rerun()
 
-    # Displaying Current Files
     st.header("Current .txt Files")
-    files = [f for f in os.listdir(data_dir) if f.endswith('.txt')]
+    files = [f for f in os.listdir(DEFAULT_DATA_DIR) if f.endswith('.txt')]
 
     if files:
         for file in files:
-            file_path = os.path.join(data_dir, file)
+            file_path = os.path.join(DEFAULT_DATA_DIR, file)
 
             col1, col2, col3 = st.columns([4, 1, 1])
 
@@ -148,7 +143,7 @@ def file_management_page(user_path):
                     if confirm_delete:
                         os.remove(file_path)
                         st.success(f"{file} has been deleted.")
-                        update_db(data_dir, db_dir, chunk_size,
+                        update_db(DEFAULT_DATA_DIR, user_db_dir, chunk_size,
                                   chunk_overlap, embedding_model, hf_token)
                         st.rerun()
                     else:
@@ -157,11 +152,12 @@ def file_management_page(user_path):
     else:
         st.write("No .txt files available.")
 
-    # Update settings at the end
     settings.update({
         "embedding_model": embedding_model,
         "hf_token": hf_token,
         "chunk_size": chunk_size,
-        "chunk_overlap": chunk_overlap
+        "chunk_overlap": chunk_overlap,
+        "data_dir": DEFAULT_DATA_DIR,
+        "db_dir": db_dir
     })
     save_settings(user_path, settings)
