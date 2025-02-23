@@ -41,6 +41,9 @@ def history_page(user_path):
                         st.write("### Retrieved Documents with Scores")
                         for i, doc in enumerate(retrieved_docs):
                             st.write(f"**Document {i + 1}:**")
+                            st.write(
+                                f"*{doc.get('document_name', 'Unknown Document')}*")
+                            st.write(f"*{doc.get('chunk_number', 'N/A')}*")
                             st.write(doc.get('content', 'No content'))
                             st.write(
                                 f"Relevance score: {doc.get('score')}")

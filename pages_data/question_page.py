@@ -131,8 +131,13 @@ def question_page(user_path, username):
             "response": answer,
             "username": username,
             "retrieved_docs": [
-                {"content": str(doc.page_content), "score": doc.metadata.get(
-                    'relevance_score', 'N/A')}
+                {
+                    "content": str(doc.page_content),
+                    "score": doc.metadata.get(
+                        'relevance_score', 'N/A'),
+                    "document_name": doc.metadata.get('source', 'Unknown Document'),
+                    "chunk_number": doc.metadata.get('chunk_number', 'N/A')
+                }
                 for doc in retrieved_docs
             ]
         }
