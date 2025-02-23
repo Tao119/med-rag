@@ -38,14 +38,15 @@ def load_all_vector_dbs(db_base_dir, embedding_model, hf_token):
 
 
 from langchain.schema import BaseRetriever, Document
+from typing import List
+from pydantic import BaseModel
 
 
-class LimitedEnsembleRetriever(BaseRetriever):
-    def __init__(self, retrievers, k):
-        self.retrievers = retrievers
-        self.k = k
+class LimitedEnsembleRetriever(BaseRetriever, BaseModel):
+    retrievers: List[BaseRetriever]
+    k: int
 
-    def get_relevant_documents(self, query):
+    def get_relevant_documents(self, query: str) -> List[Document]:
         all_results = []
         for retriever in self.retrievers:
             docs = retriever.get_relevant_documents(query)
