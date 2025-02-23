@@ -59,7 +59,7 @@ def vectorize_file(file_path, db_dir, chunk_size, chunk_overlap, embedding_model
     )
 
     st.success(
-        f"✅ {os.path.basename(file_path)} vectorized with {chunk_size} chunk size and {chunk_overlap}% overlap."
+        f"✅ {os.path.basename(file_path)} vectorized into {len(all_chunks)} chunks with {chunk_size} size and {chunk_overlap}% overlap."
     )
 
 
