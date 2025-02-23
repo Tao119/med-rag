@@ -54,8 +54,8 @@ def history_page(user_path):
                         with open(history_file, "w", encoding="utf-8") as f:
                             json.dump(user_history, f,
                                       ensure_ascii=False, indent=4)
-                        st.success("Entry deleted.")
                         st.rerun()
+                        st.success("Entry deleted.")
 
     with tabs[1]:
         st.subheader("Global Query History")

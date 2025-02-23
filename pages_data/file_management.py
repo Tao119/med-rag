@@ -59,7 +59,8 @@ def vectorize_file(file_path, db_dir, chunk_size, chunk_overlap, embedding_model
     )
 
     st.success(
-        f"✅ {os.path.basename(file_path)} vectorized with {chunk_size} chunk size and {chunk_overlap}% overlap.")
+        f"✅ {os.path.basename(file_path)} vectorized with {chunk_size} chunk size and {chunk_overlap}% overlap."
+    )
 
 
 def file_management_page(user_path):
@@ -94,64 +95,120 @@ def file_management_page(user_path):
         save_settings(user_path, global_settings)
         st.success("✅ Global settings saved successfully.")
 
-    # --- タブで表示を切り替え ---
+    # --- タブ構成 ---
     tab1, tab2, tab3 = st.tabs(
-        ["📄 File List", "📤 Upload File", "📝 Create New File"])
+        ["📄 List Files", "📤 Upload File", "📝 Create File"])
 
-    # --- 📄 ファイル一覧と設定 ---
+    # --- 📄 ファイル一覧と詳細設定 ---
     with tab1:
-        st.header("📄 Files and Settings")
-        files = [f for f in os.listdir(DEFAULT_DATA_DIR) if f.endswith('.txt')]
+        col1, col2 = st.columns([1, 3])
 
-        if files:
-            for file in files:
-                file_path = os.path.join(DEFAULT_DATA_DIR, file)
-                st.subheader(file)
+        # --- 📄 ファイル一覧と状態表示 (左カラム) ---
+        with col1:
+            st.header("📄 Files")
+            files = [f for f in os.listdir(
+                DEFAULT_DATA_DIR) if f.endswith('.txt')]
 
-                # ベクトル化の状態表示
-                is_vectorized = file in file_settings
+            if not files:
+                st.write("No .txt files available.")
+            else:
+                # ファイル名の左にベクトル化状態アイコンを追加
+                display_files = []
+                for f in files:
+                    is_vectorized = f in file_settings
+                    status_icon = "✅" if is_vectorized else "⚠️"
+                    display_files.append(f"{status_icon} {f}")
+
+                selected_file_display = st.radio(
+                    "Select a file", display_files, key="file_selector")
+
+                # 選択されたファイル名からアイコンを削除して取得
+                selected_file = selected_file_display.split(" ", 1)[1]
+
+                # 一括ベクトル化ボタン
+                if st.button("🔄 Vectorize All Files"):
+                    updated_files = []
+                    for file in files:
+                        if file in file_settings:
+                            continue
+
+                        file_path = os.path.join(DEFAULT_DATA_DIR, file)
+                        settings = {
+                            "chunk_size": global_settings.get("chunk_size", 1024),
+                            "chunk_overlap": global_settings.get("chunk_overlap", 20),
+                            "embedding_model": global_settings.get("embedding_model", ""),
+                            "hf_token": global_settings.get("hf_token", "")
+                        }
+
+                        vectorize_file(file_path, user_db_dir, **settings)
+                        file_settings[file] = settings
+                        updated_files.append(file)
+
+                    if updated_files:
+                        save_file_settings(file_settings, user_path)
+                        st.success(
+                            f"✅ Vectorized and updated settings for: {', '.join(updated_files)}")
+                    else:
+                        st.info(
+                            "ℹ️ No files were updated (all have individual settings).")
+
+                    st.rerun()
+
+        # --- 📋 選択されたファイルの詳細設定 (右カラム) ---
+        with col2:
+            if selected_file:
+                st.header(f"⚙️ Settings for {selected_file}")
+                file_path = os.path.join(DEFAULT_DATA_DIR, selected_file)
+
+                is_vectorized = selected_file in file_settings
                 status_color = "green" if is_vectorized else "red"
                 status_text = "✅ Vectorized" if is_vectorized else "⚠️ Not Vectorized"
                 st.markdown(
                     f"<span style='color:{status_color}'>{status_text}</span>", unsafe_allow_html=True)
 
-                # 詳細設定をexpanderで表示
-                with st.expander("⚙️ Detailed Settings", expanded=False):
-                    settings = file_settings.get(file, {
-                        "chunk_size": global_settings.get("chunk_size", 1024),
-                        "chunk_overlap": global_settings.get("chunk_overlap", 20),
-                        "embedding_model": global_settings.get("embedding_model", ""),
-                        "hf_token": global_settings.get("hf_token", "")
-                    })
+                settings = file_settings.get(selected_file, {
+                    "chunk_size": global_settings.get("chunk_size", 1024),
+                    "chunk_overlap": global_settings.get("chunk_overlap", 20),
+                    "embedding_model": global_settings.get("embedding_model", ""),
+                    "hf_token": global_settings.get("hf_token", "")
+                })
 
-                    chunk_size = st.number_input(
-                        f"Chunk Size ({file})", min_value=256, max_value=4096, value=settings["chunk_size"], step=256, key=f"chunk_size_{file}")
-                    chunk_overlap = st.slider(
-                        f"Chunk Overlap (%) ({file})", 0, 50, settings["chunk_overlap"], key=f"chunk_overlap_{file}")
-                    embedding_model = st.text_input(
-                        f"Embedding Model ({file})", settings["embedding_model"], key=f"embedding_model_{file}")
-                    hf_token = st.text_input(
-                        f"HuggingFace Token ({file})", settings["hf_token"], type="password", key=f"hf_token_{file}")
+                chunk_size = st.number_input(
+                    "Chunk Size", min_value=256, max_value=4096, value=settings["chunk_size"], step=256, key=f"chunk_size_{selected_file}")
+                chunk_overlap = st.slider(
+                    "Chunk Overlap (%)", 0, 50, settings["chunk_overlap"], key=f"chunk_overlap_{selected_file}")
+                embedding_model = st.text_input(
+                    "Embedding Model", settings["embedding_model"], key=f"embedding_model_{selected_file}")
+                hf_token = st.text_input(
+                    "HuggingFace Token", settings["hf_token"], type="password", key=f"hf_token_{selected_file}")
 
-                    # 個別更新ボタン
-                    if st.button(f"🚀 Vectorize {file}", key=f"vectorize_{file}"):
-                        updated_settings = {
-                            "chunk_size": chunk_size,
-                            "chunk_overlap": chunk_overlap,
-                            "embedding_model": embedding_model,
-                            "hf_token": hf_token
-                        }
-                        file_settings[file] = updated_settings
-                        save_file_settings(file_settings, user_path)
+                # 個別ファイルのベクトル化
+                if st.button(f"🚀 Vectorize {selected_file}", key=f"vectorize_{selected_file}"):
+                    updated_settings = {
+                        "chunk_size": chunk_size,
+                        "chunk_overlap": chunk_overlap,
+                        "embedding_model": embedding_model,
+                        "hf_token": hf_token
+                    }
+                    file_settings[selected_file] = updated_settings
+                    save_file_settings(file_settings, user_path)
+                    vectorize_file(file_path, user_db_dir, **updated_settings)
+                    st.success(
+                        f"✅ {selected_file} has been vectorized with updated settings.")
+                    st.rerun()
 
-                        vectorize_file(file_path, user_db_dir,
-                                       **updated_settings)
-                        st.success(
-                            f"✅ {file} has been vectorized with updated settings.")
-
+                # --- ファイル削除機能 ---
                 st.markdown("---")
-        else:
-            st.write("No .txt files available.")
+                st.subheader("🗑️ Delete File")
+                confirm_delete = st.checkbox(
+                    "Check to confirm deletion", key=f"confirm_delete_{selected_file}")
+                if st.button(f"❌ Delete {selected_file}", key=f"delete_{selected_file}") and confirm_delete:
+                    os.remove(file_path)
+                    if selected_file in file_settings:
+                        del file_settings[selected_file]
+                        save_file_settings(file_settings, user_path)
+                    st.success(f"🗑️ {selected_file} has been deleted.")
+                    st.rerun()
 
     # --- 📤 ファイルアップロード機能 ---
     with tab2:
@@ -172,10 +229,8 @@ def file_management_page(user_path):
                 st.success(f"✅ '{uploaded_file.name}' uploaded successfully.")
 
                 if auto_vectorize:
-                    # Use global settings for vectorization
                     vectorize_file(save_path, user_db_dir, chunk_size,
                                    chunk_overlap, embedding_model, hf_token)
-                    # Save the settings for the new file
                     file_settings[uploaded_file.name] = {
                         "chunk_size": chunk_size,
                         "chunk_overlap": chunk_overlap,
