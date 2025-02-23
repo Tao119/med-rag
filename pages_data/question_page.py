@@ -166,9 +166,9 @@ def question_page(user_path, username):
                 st.write(f"**Document {i + 1}:**")
                 st.write(
                     f"**Source:** {document_name} | **Chunk:** {chunk_number}")
-                st.write(doc.page_content)
                 st.write(
                     f"Relevance score: {doc.metadata.get('relevance_score', 'N/A')}")
+                st.write(doc.page_content)
 
         # Save Query History
         history_entry = {

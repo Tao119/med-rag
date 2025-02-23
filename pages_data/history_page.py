@@ -45,9 +45,9 @@ def history_page(user_path):
                             st.write(
                                 f"*{doc.get('document_name', 'Unknown Document')}*")
                             st.write(f"*{doc.get('chunk_number', 'N/A')}*")
-                            st.write(doc.get('content', 'No content'))
                             st.write(
                                 f"Relevance score: {doc.get('score')}")
+                            st.write(doc.get('content', 'No content'))
 
                     if st.button("Delete", key=f"user_delete_{idx}"):
                         user_history.remove(entry)
