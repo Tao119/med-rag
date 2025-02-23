@@ -69,7 +69,9 @@ def merge_retrievers(vector_dbs, score_threshold, k):
         }) for db in vector_dbs
     ]
 
-    ensemble_retriever = LimitedEnsembleRetriever(retrievers, k)
+    ensemble_retriever = LimitedEnsembleRetriever(
+        retrievers=retrievers, k=k)
+
     return ensemble_retriever
 
 
