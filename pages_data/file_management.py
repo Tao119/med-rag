@@ -152,10 +152,12 @@ def file_management_page(user_path):
             if not files:
                 st.write("No .txt files available.")
             else:
+                confirm_all = st.checkbox(
+                    "Check to include vectorized", key=f"confirm_all")
                 if st.button("🔄 Vectorize All Files"):
                     updated_files = []
                     for file in files:
-                        if file in file_settings:
+                        if file in file_settings and not confirm_all:
                             continue
 
                         file_path = os.path.join(DEFAULT_DATA_DIR, file)
