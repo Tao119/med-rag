@@ -109,7 +109,11 @@ def question_page(user_path, username):
         with st.expander("Retrieved Documents with Scores", expanded=False):
             retrieved_docs = retriever.invoke(query)
             for i, doc in enumerate(retrieved_docs):
+                document_name = doc.metadata.get('source', 'Unknown Document')
+                chunk_number = doc.metadata.get('chunk_number', 'N/A')
                 st.write(f"**Document {i + 1}:**")
+                st.write(
+                    f"**Source:** {document_name} | **Chunk:** {chunk_number}")
                 st.write(doc.page_content)
                 st.write(
                     f"Relevance score: {doc.metadata.get('relevance_score', 'N/A')}")

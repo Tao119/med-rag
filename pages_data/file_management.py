@@ -24,18 +24,27 @@ def update_db(data_dir, db_dir, chunk_size, chunk_overlap, embedding_model, hf_t
         chunk_size=chunk_size,
         chunk_overlap=int(chunk_size * (chunk_overlap / 100))
     )
-    docs = text_splitter.split_documents(documents)
+
+    all_chunks = []
+    for doc in documents:
+        chunks = text_splitter.split_documents([doc])
+        chunks_length = len(chunks)
+        for idx, chunk in enumerate(chunks):
+            chunk.metadata["source"] = doc.metadata.get("source", os.path.basename(
+                doc.metadata.get("file_path", "Unknown Document"))).split("/")[-1]
+            chunk.metadata["chunk_number"] = f"{idx + 1} / {chunks_length}"
+        all_chunks.extend(chunks)
 
     embeddings = Embeddings(model_name=embedding_model, hf_token=hf_token)
 
     Chroma.from_documents(
-        tqdm(docs),
+        tqdm(all_chunks),
         embeddings,
         persist_directory=db_dir,
     )
 
     st.success(
-        f"✅ {len(docs)} documents were vectorized and database updated with {chunk_overlap}% overlap."
+        f"✅ {len(all_chunks)} documents were vectorized and database updated with {chunk_overlap}% overlap."
     )
 
 
