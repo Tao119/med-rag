@@ -9,6 +9,8 @@ from langchain_openai import AzureChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
+from langchain.retrievers.ensemble import EnsembleRetriever
+
 
 load_dotenv()
 
@@ -16,6 +18,36 @@ azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
 azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION")
 azure_deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
+
+
+def load_all_vector_dbs(db_base_dir, embedding_model, hf_token):
+    vector_dbs = []
+
+    for db_name in os.listdir(db_base_dir):
+        db_path = os.path.join(db_base_dir, db_name)
+        if os.path.isdir(db_path):
+            vector_db = Chroma(
+                persist_directory=db_path,
+                embedding_function=Embeddings(
+                    model_name=embedding_model, hf_token=hf_token
+                )
+            )
+            vector_dbs.append(vector_db)
+
+    return vector_dbs
+
+
+def merge_retrievers(vector_dbs, score_threshold, k):
+    retrievers = [
+        db.as_retriever(search_type="similarity_score_threshold", search_kwargs={
+            "score_threshold": score_threshold, "k": k
+        }) for db in vector_dbs
+    ]
+
+    # EnsembleRetrieverで統合
+    ensemble_retriever = EnsembleRetriever(
+        retrievers=retrievers, weights=[1] * len(retrievers))
+    return ensemble_retriever
 
 
 def question_page(user_path, username):
@@ -60,15 +92,10 @@ def question_page(user_path, username):
 
     if st.button("Submit") and query:
         # Vector DB Initialization
-        vector_db = Chroma(
-            persist_directory=settings["db_dir"],
-            embedding_function=Embeddings(
-                model_name=embedding_model, hf_token=hf_token)
-        )
+        vector_dbs = load_all_vector_dbs(
+            os.path.join(user_path, "db"), embedding_model, hf_token)
 
-        retriever = vector_db.as_retriever(search_type="similarity_score_threshold", search_kwargs={
-            "score_threshold": score_threshold, "k": k
-        })
+        retriever = merge_retrievers(vector_dbs, score_threshold, k)
 
         # Azure LLM
         llm = AzureChatOpenAI(

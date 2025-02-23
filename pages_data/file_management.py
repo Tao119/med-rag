@@ -65,8 +65,9 @@ def vectorize_file(file_path, db_dir, user_chunks_dir, chunk_size, chunk_overlap
     if not documents:
         st.warning(f"No documents found in {file_path}.")
         return []
+    file_db_dir = os.path.join(db_dir, file_path.split("/")[-1])
 
-    chroma_db = Chroma(persist_directory=db_dir, embedding_function=Embeddings(
+    chroma_db = Chroma(persist_directory=file_db_dir, embedding_function=Embeddings(
         model_name=embedding_model, hf_token=hf_token))
     chroma_db.delete_collection()
 
@@ -86,10 +87,9 @@ def vectorize_file(file_path, db_dir, user_chunks_dir, chunk_size, chunk_overlap
     Chroma.from_documents(
         tqdm(all_chunks),
         Embeddings(model_name=embedding_model, hf_token=hf_token),
-        persist_directory=db_dir,
+        persist_directory=file_db_dir,
     )
 
-    # チャンクデータをユーザーごとのディレクトリに保存
     save_chunks_to_json(
         user_chunks_dir, os.path.basename(file_path), all_chunks)
 
@@ -145,12 +145,42 @@ def file_management_page(user_path):
         # --- 📄 ファイル一覧と状態表示 (左カラム) ---
         with col1:
             st.header("📄 Files")
+
             files = [f for f in os.listdir(
                 DEFAULT_DATA_DIR) if f.endswith('.txt')]
 
             if not files:
                 st.write("No .txt files available.")
             else:
+                if st.button("🔄 Vectorize All Files"):
+                    updated_files = []
+                    for file in files:
+                        if file in file_settings:
+                            continue
+
+                        file_path = os.path.join(DEFAULT_DATA_DIR, file)
+                        settings = {
+                            "chunk_size": global_settings.get("chunk_size", 1024),
+                            "chunk_overlap": global_settings.get("chunk_overlap", 20),
+                            "embedding_model": global_settings.get("embedding_model", ""),
+                            "hf_token": global_settings.get("hf_token", "")
+                        }
+
+                        vectorize_file(file_path, user_db_dir,
+                                       user_chunks_dir, ** settings)
+                        file_settings[file] = settings
+                        updated_files.append(file)
+
+                    if updated_files:
+                        save_file_settings(file_settings, user_path)
+                        st.success(
+                            f"✅ Vectorized and updated settings for: {', '.join(updated_files)}")
+                    else:
+                        st.info(
+                            "ℹ️ No files were updated (all have individual settings).")
+
+                    st.rerun()
+
                 display_files = []
                 for f in files:
                     is_vectorized = f in file_settings
