@@ -199,7 +199,8 @@ def file_management_page(user_path):
                     }
                     file_settings[selected_file] = updated_settings
                     save_file_settings(file_settings, user_path)
-                    vectorize_file(file_path, user_db_dir, **updated_settings)
+                    vectorize_file(file_path, user_db_dir,
+                                   user_chunks_dir, **updated_settings)
                     st.success(
                         f"✅ {selected_file} has been vectorized with updated settings.")
                     st.rerun()
