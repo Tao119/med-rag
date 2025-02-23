@@ -40,14 +40,31 @@ def load_all_vector_dbs(db_base_dir, embedding_model, hf_token):
 def merge_retrievers(vector_dbs, score_threshold, k):
     retrievers = [
         db.as_retriever(search_type="similarity_score_threshold", search_kwargs={
-            "score_threshold": score_threshold, "k": k
+            "score_threshold": score_threshold,
+            "k": k
         }) for db in vector_dbs
     ]
 
-    # EnsembleRetrieverで統合
-    ensemble_retriever = EnsembleRetriever(
-        retrievers=retrievers, weights=[1] * len(retrievers))
-    return ensemble_retriever
+    class LimitedEnsembleRetriever:
+        def __init__(self, retrievers, k):
+            self.retrievers = retrievers
+            self.k = k
+
+        def invoke(self, query):
+            all_results = []
+            for retriever in self.retrievers:
+                docs = retriever.invoke(query)
+                all_results.extend(docs)
+
+            sorted_results = sorted(
+                all_results,
+                key=lambda doc: doc.metadata.get('relevance_score', 0),
+                reverse=True
+            )
+
+            return sorted_results[:self.k]
+
+    return LimitedEnsembleRetriever(retrievers, k)
 
 
 def question_page(user_path, username):
