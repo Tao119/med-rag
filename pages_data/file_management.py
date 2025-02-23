@@ -58,9 +58,8 @@ def vectorize_file(file_path, db_dir, chunk_size, chunk_overlap, embedding_model
         persist_directory=db_dir,
     )
 
-    st.success(
-        f"✅ {os.path.basename(file_path)} vectorized into {len(all_chunks)} chunks with {chunk_size} size and {chunk_overlap}% overlap."
-    )
+    # 保存したチャンクを返却して、後で表示に使う
+    return all_chunks
 
 
 def file_management_page(user_path):
@@ -182,7 +181,7 @@ def file_management_page(user_path):
                 hf_token = st.text_input(
                     "HuggingFace Token", settings["hf_token"], type="password", key=f"hf_token_{selected_file}")
 
-                # 個別ファイルのベクトル化
+                # 個別ファイルのベクトル化とチャンク取得
                 if st.button(f"🚀 Vectorize {selected_file}", key=f"vectorize_{selected_file}"):
                     updated_settings = {
                         "chunk_size": chunk_size,
@@ -192,10 +191,29 @@ def file_management_page(user_path):
                     }
                     file_settings[selected_file] = updated_settings
                     save_file_settings(file_settings, user_path)
-                    vectorize_file(file_path, user_db_dir, **updated_settings)
+                    chunks = vectorize_file(
+                        file_path, user_db_dir, **updated_settings)
+
                     st.success(
                         f"✅ {selected_file} has been vectorized with updated settings.")
                     st.rerun()
+
+                # --- 📋 チャンク一覧と内容表示 ---
+                st.markdown("---")
+                st.subheader("📋 View Chunks")
+
+                # チャンクを表示
+                chunks = vectorize_file(file_path, user_db_dir, **settings)
+                chunk_titles = [
+                    f"Chunk {i + 1}: {chunk.page_content[:30]}..." for i, chunk in enumerate(chunks)]
+
+                selected_chunk = st.selectbox(
+                    "Select a Chunk to View", chunk_titles)
+
+                # 選択されたチャンクの詳細を表示
+                selected_chunk_index = chunk_titles.index(selected_chunk)
+                st.write("### Chunk Content")
+                st.write(chunks[selected_chunk_index].page_content)
 
                 # --- ファイル削除機能 ---
                 st.markdown("---")
@@ -208,72 +226,4 @@ def file_management_page(user_path):
                         del file_settings[selected_file]
                         save_file_settings(file_settings, user_path)
                     st.success(f"🗑️ {selected_file} has been deleted.")
-                    st.rerun()
-
-    # --- 📤 ファイルアップロード機能 ---
-    with tab2:
-        st.header("📤 Upload New File")
-        uploaded_file = st.file_uploader("Upload a .txt file", type=["txt"])
-        auto_vectorize = st.checkbox(
-            "Automatically vectorize after upload", value=True)
-
-        if uploaded_file is not None:
-            save_path = os.path.join(DEFAULT_DATA_DIR, uploaded_file.name)
-
-            if os.path.exists(save_path):
-                st.error(
-                    f"A file named '{uploaded_file.name}' already exists.")
-            else:
-                with open(save_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                st.success(f"✅ '{uploaded_file.name}' uploaded successfully.")
-
-                if auto_vectorize:
-                    vectorize_file(save_path, user_db_dir, chunk_size,
-                                   chunk_overlap, embedding_model, hf_token)
-                    file_settings[uploaded_file.name] = {
-                        "chunk_size": chunk_size,
-                        "chunk_overlap": chunk_overlap,
-                        "embedding_model": embedding_model,
-                        "hf_token": hf_token
-                    }
-                    save_file_settings(file_settings, user_path)
-                st.rerun()
-
-    # --- 📝 新規テキストファイル作成 ---
-    with tab3:
-        st.header("📝 Create New Text File")
-        new_file_name = st.text_input(
-            "Enter new file name (without .txt extension)")
-        new_file_content = st.text_area("Enter file content")
-        create_auto_vectorize = st.checkbox(
-            "Automatically vectorize after creation", value=True)
-
-        if st.button("➕ Create File"):
-            if not new_file_name:
-                st.error("⚠️ Please enter a file name.")
-            elif not new_file_content:
-                st.error("⚠️ Please enter some content for the file.")
-            else:
-                new_file_path = os.path.join(
-                    DEFAULT_DATA_DIR, f"{new_file_name}.txt")
-                if os.path.exists(new_file_path):
-                    st.error(
-                        f"⚠️ A file named '{new_file_name}.txt' already exists.")
-                else:
-                    with open(new_file_path, "w", encoding="utf-8") as f:
-                        f.write(new_file_content)
-                    st.success(
-                        f"✅ File '{new_file_name}.txt' created successfully.")
-
-                    if create_auto_vectorize:
-                        vectorize_file(
-                            new_file_path, user_db_dir, chunk_size, chunk_overlap, embedding_model, hf_token)
-                        file_settings[f"{new_file_name}.txt"] = {
-                            "chunk_size": chunk_size,
-                            "chunk_overlap": chunk_overlap,
-                            "embedding_model": embedding_model,
-                            "hf_token": hf_token
-                        }
-                        save_file_settings(file_settings, user_path)
                     st.rerun()
