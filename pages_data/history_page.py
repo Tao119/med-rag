@@ -18,10 +18,11 @@ def history_page(user_path):
             st.write("No query history found.")
         else:
             user_history_sorted = sorted(
-                user_history, key=lambda x: datetime.fromisoformat(x['timestamp']))
+                user_history, key=lambda x: datetime.fromisoformat(x['timestamp']), reverse=True
+            )
 
             for idx, entry in enumerate(user_history_sorted):
-                with st.expander(f"Query at {entry['timestamp']}"):
+                with st.expander(f"Query at {entry['timestamp']} {entry['query'][:10]}"):
                     st.write(f"**Query:** {entry['query']}")
                     st.write(f"**System Prompt:** {entry['system_prompt']}")
                     st.write("**Settings:**")
