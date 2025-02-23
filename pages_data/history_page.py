@@ -95,12 +95,3 @@ def history_page(user_path):
                             st.write(
                                 f"Relevance score: {doc.get('score')}")
                             st.write(doc.get('content', 'No content'))
-
-                    if st.button("Delete", key=f"user_delete_{idx}"):
-                        user_history.remove(entry)
-                        history_file = os.path.join(user_path, "history.json")
-                        with open(history_file, "w", encoding="utf-8") as f:
-                            json.dump(user_history, f,
-                                      ensure_ascii=False, indent=4)
-                        st.rerun()
-                        st.success("Entry deleted.")
