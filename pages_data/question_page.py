@@ -37,6 +37,29 @@ def load_all_vector_dbs(db_base_dir, embedding_model, hf_token):
     return vector_dbs
 
 
+from langchain.schema import BaseRetriever, Document
+
+
+class LimitedEnsembleRetriever(BaseRetriever):
+    def __init__(self, retrievers, k):
+        self.retrievers = retrievers
+        self.k = k
+
+    def get_relevant_documents(self, query):
+        all_results = []
+        for retriever in self.retrievers:
+            docs = retriever.get_relevant_documents(query)
+            all_results.extend(docs)
+
+        sorted_results = sorted(
+            all_results,
+            key=lambda doc: doc.metadata.get('relevance_score', 0),
+            reverse=True
+        )
+
+        return sorted_results[:self.k]
+
+
 def merge_retrievers(vector_dbs, score_threshold, k):
     retrievers = [
         db.as_retriever(search_type="similarity_score_threshold", search_kwargs={
@@ -45,26 +68,8 @@ def merge_retrievers(vector_dbs, score_threshold, k):
         }) for db in vector_dbs
     ]
 
-    class LimitedEnsembleRetriever:
-        def __init__(self, retrievers, k):
-            self.retrievers = retrievers
-            self.k = k
-
-        def invoke(self, query):
-            all_results = []
-            for retriever in self.retrievers:
-                docs = retriever.invoke(query)
-                all_results.extend(docs)
-
-            sorted_results = sorted(
-                all_results,
-                key=lambda doc: doc.metadata.get('relevance_score', 0),
-                reverse=True
-            )
-
-            return sorted_results[:self.k]
-
-    return LimitedEnsembleRetriever(retrievers, k)
+    ensemble_retriever = LimitedEnsembleRetriever(retrievers, k)
+    return ensemble_retriever
 
 
 def question_page(user_path, username):
