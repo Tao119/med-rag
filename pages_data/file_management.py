@@ -1,7 +1,7 @@
+
 import streamlit as st
 import os
 from utils.settings_utils import load_settings, save_settings
-
 from langchain_community.document_loaders import DirectoryLoader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_chroma import Chroma
@@ -50,34 +50,53 @@ def file_management_page(user_path):
     hf_token = st.sidebar.text_input(
         "HuggingFace API token", settings.get("hf_token", ""), type="password", key="hf_token"
     )
-    chunk_size = st.sidebar.slider(
-        "Chunk size", 500, 2000, settings.get("chunk_size", 1000), key="chunk_size"
+
+    # --- スライダーと数値入力を同期 ---
+    if "chunk_size" not in st.session_state:
+        st.session_state["chunk_size"] = settings.get("chunk_size", 1000)
+
+    if "chunk_overlap" not in st.session_state:
+        st.session_state["chunk_overlap"] = settings.get("chunk_overlap", 25)
+
+    st.sidebar.write("Chunk Size")
+
+    allowed_chunk_sizes = [256, 512, 1024, 2048, 4096]
+
+    chunk_size = st.sidebar.select_slider(
+        "Chunk Size", options=allowed_chunk_sizes, value=st.session_state.get("chunk_size", 1024), key="chunk_size_slider"
     )
 
+    if chunk_size != st.session_state["chunk_size"]:
+        st.session_state["chunk_size"] = chunk_size
+
+    st.sidebar.write("Chunk Overlap (%)")
+
     chunk_overlap = st.sidebar.slider(
-        "Chunk Overlap (%)", 0, 50, settings.get("chunk_overlap", 25), key="chunk_overlap"
+        " ", 0, 50, st.session_state["chunk_overlap"], key="chunk_overlap_slider"
     )
+
+    if chunk_overlap != st.session_state["chunk_overlap"]:
+        st.session_state["chunk_overlap"] = chunk_overlap
 
     user_db_dir = os.path.join(user_path, "db")
     os.makedirs(DEFAULT_DATA_DIR, exist_ok=True)
     os.makedirs(user_db_dir, exist_ok=True)
 
     st.sidebar.header("Data Directory Settings")
-    data_dir = st.sidebar.text_input(
-        "Data Directory", DEFAULT_DATA_DIR, disabled=True)
-    db_dir = st.sidebar.text_input("Database Directory", user_db_dir)
+    data_dir = st.sidebar.text_input("Data Directory", DEFAULT_DATA_DIR)
 
-    if st.sidebar.button("Save Paths"):
-        if not os.path.exists(db_dir):
-            os.makedirs(db_dir)
-        settings["data_dir"] = data_dir
-        settings["db_dir"] = db_dir
+    if st.sidebar.button("Save"):
+        settings.update({
+            "data_dir": data_dir,
+            "embedding_model": embedding_model,
+            "hf_token": hf_token,
+            "chunk_size": st.session_state["chunk_size"],
+            "chunk_overlap": st.session_state["chunk_overlap"]
+        })
         save_settings(user_path, settings)
-        update_db(data_dir, db_dir, chunk_size,
-                  chunk_overlap, embedding_model, hf_token)
-        st.success("Paths updated successfully.")
-        st.rerun()
+        st.success("Settings updated successfully!")
 
+    # --- Upload & Create Tabs ---
     tab1, tab2 = st.tabs(["Upload", "Create"])
 
     with tab1:
@@ -94,9 +113,6 @@ def file_management_page(user_path):
                 with open(save_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
                 st.success(f"{uploaded_file.name} has been uploaded.")
-                update_db(DEFAULT_DATA_DIR, user_db_dir, chunk_size,
-                          chunk_overlap, embedding_model, hf_token)
-                st.rerun()
 
     with tab2:
         st.header("Create New File")
@@ -118,10 +134,8 @@ def file_management_page(user_path):
                     with open(new_file_path, "w", encoding="utf-8") as f:
                         f.write(new_file_content)
                     st.success(f"File '{new_file_name}.txt' has been created.")
-                    update_db(DEFAULT_DATA_DIR, user_db_dir, chunk_size,
-                              chunk_overlap, embedding_model, hf_token)
-                    st.rerun()
 
+    # --- ファイル一覧表示 ---
     st.header("Current .txt Files")
     files = [f for f in os.listdir(DEFAULT_DATA_DIR) if f.endswith('.txt')]
 
@@ -143,21 +157,16 @@ def file_management_page(user_path):
                     if confirm_delete:
                         os.remove(file_path)
                         st.success(f"{file} has been deleted.")
-                        update_db(DEFAULT_DATA_DIR, user_db_dir, chunk_size,
-                                  chunk_overlap, embedding_model, hf_token)
                         st.rerun()
                     else:
                         st.warning(
                             "Please confirm deletion by checking the box.")
+
     else:
         st.write("No .txt files available.")
 
-    settings.update({
-        "embedding_model": embedding_model,
-        "hf_token": hf_token,
-        "chunk_size": chunk_size,
-        "chunk_overlap": chunk_overlap,
-        "data_dir": DEFAULT_DATA_DIR,
-        "db_dir": db_dir
-    })
-    save_settings(user_path, settings)
+    # --- 手動でDB更新を実行するボタン ---
+    if st.button("Update Database"):
+        update_db(DEFAULT_DATA_DIR, user_db_dir, st.session_state["chunk_size"],
+                  st.session_state["chunk_overlap"], embedding_model, hf_token)
+        st.success("Database updated successfully!")
