@@ -22,7 +22,7 @@ def history_page(user_path):
             )
 
             for idx, entry in enumerate(user_history_sorted):
-                with st.expander(f"Query at {entry['timestamp']} {entry['query'][:10]}"):
+                with st.expander(f"Query at {entry['timestamp']} {entry['query'][:20]}"):
                     st.write(f"**Query:** {entry['query']}")
                     st.write(f"**System Prompt:** {entry['system_prompt']}")
                     st.write("**Settings:**")
@@ -66,10 +66,10 @@ def history_page(user_path):
             st.write("No global query history found.")
         else:
             global_history_sorted = sorted(
-                global_history, key=lambda x: datetime.fromisoformat(x['timestamp']))
+                global_history, key=lambda x: datetime.fromisoformat(x['timestamp']), reverse=True)
 
             for idx, entry in enumerate(global_history_sorted):
-                with st.expander(f"Query at {entry['timestamp']} by {entry.get('username', 'Unknown User')}"):
+                with st.expander(f"Query at {entry['timestamp']} {entry['query'][:20]} by {entry.get('username', 'Unknown User')}"):
                     st.write(f"**Query:** {entry['query']}")
                     st.write(f"**System Prompt:** {entry['system_prompt']}")
                     st.write("**Settings:**")
