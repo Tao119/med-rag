@@ -62,8 +62,11 @@ def file_management_page(user_path):
 
     allowed_chunk_sizes = [256, 512, 1024, 2048, 4096]
 
+    if "chunk_size" not in st.session_state or st.session_state["chunk_size"] not in allowed_chunk_sizes:
+        st.session_state["chunk_size"] = 1024
+
     chunk_size = st.sidebar.select_slider(
-        "Chunk Size", options=allowed_chunk_sizes, value=st.session_state.get("chunk_size", 1024), key="chunk_size_slider"
+        "Chunk Size", options=allowed_chunk_sizes, value=st.session_state["chunk_size"], key="chunk_size_slider"
     )
 
     if chunk_size != st.session_state["chunk_size"]:
