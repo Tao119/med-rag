@@ -222,20 +222,41 @@ def file_management_page(user_path):
                     "HuggingFace Token", settings["hf_token"], type="password", key=f"hf_token_{selected_file}")
 
                 # 個別ファイルのベクトル化
-                if st.button(f"🚀 Vectorize {selected_file}", key=f"vectorize_{selected_file}"):
-                    updated_settings = {
-                        "chunk_size": chunk_size,
-                        "chunk_overlap": chunk_overlap,
-                        "embedding_model": embedding_model,
-                        "hf_token": hf_token
-                    }
-                    file_settings[selected_file] = updated_settings
-                    save_file_settings(file_settings, user_path)
-                    vectorize_file(file_path, user_db_dir,
-                                   user_chunks_dir, **updated_settings)
-                    st.success(
-                        f"✅ {selected_file} has been vectorized with updated settings.")
-                    st.rerun()
+                col_v, col_d = st.columns([2, 1])
+
+                with col_v:
+                    if st.button(f"🚀 Vectorize {selected_file}", key=f"vectorize_{selected_file}"):
+                        updated_settings = {
+                            "chunk_size": chunk_size,
+                            "chunk_overlap": chunk_overlap,
+                            "embedding_model": embedding_model,
+                            "hf_token": hf_token
+                        }
+                        file_settings[selected_file] = updated_settings
+                        save_file_settings(file_settings, user_path)
+                        vectorize_file(file_path, user_db_dir,
+                                       user_chunks_dir, **updated_settings)
+                        st.success(
+                            f"✅ {selected_file} has been vectorized with updated settings.")
+                        st.rerun()
+
+                with col_d:
+                    if st.button(f"🗑️ Delete DB", key=f"delete_db_{selected_file}"):
+                        db_dir = os.path.join(user_db_dir, selected_file)
+                        if os.path.exists(db_dir):
+                            import shutil
+                            shutil.rmtree(db_dir)
+                            st.success(
+                                f"🗑️ Vector DB for {selected_file} has been deleted.")
+                        else:
+                            st.warning(
+                                f"⚠️ No Vector DB found for {selected_file}.")
+
+                        if selected_file in file_settings:
+                            del file_settings[selected_file]
+                            save_file_settings(file_settings, user_path)
+
+                        st.rerun()
 
                 # チャンクのロード
                 chunks = load_chunks_from_json(user_chunks_dir, selected_file)
