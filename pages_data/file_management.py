@@ -94,14 +94,6 @@ def file_management_page(user_path):
         save_settings(user_path, global_settings)
         st.success("✅ Global settings saved successfully.")
 
-        # 個別設定がないファイルに新しいグローバル設定を適用
-        for file_name in os.listdir(DEFAULT_DATA_DIR):
-            if file_name.endswith('.txt') and file_name not in file_settings:
-                file_path = os.path.join(DEFAULT_DATA_DIR, file_name)
-                vectorize_file(file_path, user_db_dir, chunk_size,
-                               chunk_overlap, embedding_model, hf_token)
-        st.success("✅ Global settings applied to unconfigured files.")
-
     # --- タブで表示を切り替え ---
     tab1, tab2, tab3 = st.tabs(
         ["📄 File List", "📤 Upload File", "📝 Create New File"])
