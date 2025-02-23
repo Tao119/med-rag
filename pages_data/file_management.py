@@ -97,6 +97,8 @@ def file_management_page(user_path):
             "chunk_overlap": st.session_state["chunk_overlap"]
         })
         save_settings(user_path, settings)
+        update_db(DEFAULT_DATA_DIR, user_db_dir, st.session_state["chunk_size"],
+                  st.session_state["chunk_overlap"], embedding_model, hf_token)
         st.success("Settings updated successfully!")
 
     # --- Upload & Create Tabs ---
@@ -116,6 +118,8 @@ def file_management_page(user_path):
                 with open(save_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
                 st.success(f"{uploaded_file.name} has been uploaded.")
+                update_db(DEFAULT_DATA_DIR, user_db_dir, st.session_state["chunk_size"],
+                          st.session_state["chunk_overlap"], embedding_model, hf_token)
 
     with tab2:
         st.header("Create New File")
@@ -137,6 +141,9 @@ def file_management_page(user_path):
                     with open(new_file_path, "w", encoding="utf-8") as f:
                         f.write(new_file_content)
                     st.success(f"File '{new_file_name}.txt' has been created.")
+
+                    update_db(DEFAULT_DATA_DIR, user_db_dir, st.session_state["chunk_size"],
+                              st.session_state["chunk_overlap"], embedding_model, hf_token)
 
     # --- ファイル一覧表示 ---
     st.header("Current .txt Files")
@@ -167,9 +174,3 @@ def file_management_page(user_path):
 
     else:
         st.write("No .txt files available.")
-
-    # --- 手動でDB更新を実行するボタン ---
-    if st.button("Update Database"):
-        update_db(DEFAULT_DATA_DIR, user_db_dir, st.session_state["chunk_size"],
-                  st.session_state["chunk_overlap"], embedding_model, hf_token)
-        st.success("Database updated successfully!")
