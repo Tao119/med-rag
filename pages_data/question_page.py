@@ -5,7 +5,7 @@ from datetime import datetime
 import os
 from embedding import Embeddings
 from langchain_chroma import Chroma
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
@@ -15,6 +15,7 @@ from langchain.retrievers.ensemble import EnsembleRetriever
 load_dotenv()
 
 azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
+openai_api_key = os.getenv("OPENAI_API_KEY")
 azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION")
 
@@ -126,14 +127,17 @@ def question_page(user_path, username):
         retriever = merge_retrievers(vector_dbs, score_threshold, k)
 
         # Azure LLM
-        llm = AzureChatOpenAI(
-            azure_endpoint=azure_endpoint,
-            api_version=azure_api_version,
-            azure_deployment=settings.get(
-                "chat_model", os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")),
-            api_key=azure_api_key,
-            model="gpt-4o"
-        )
+        # llm = AzureChatOpenAI(
+        #     azure_endpoint=azure_endpoint,
+        #     api_version=azure_api_version,
+        #     azure_deployment=settings.get(
+        #         "chat_model", os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")),
+        #     api_key=azure_api_key,
+        #     model="gpt-4o"
+        # )
+        llm = ChatOpenAI(
+            api_key=openai_api_key,
+            model=chat_model)
 
         # Prompt Template
         prompt_template = ChatPromptTemplate.from_messages([
