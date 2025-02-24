@@ -190,6 +190,7 @@ def question_page(user_path, username):
             },
             "response": answer,
             "username": username,
+            "chat_model": chat_model,
             "retrieved_docs": [
                 {
                     "content": str(doc.page_content),
