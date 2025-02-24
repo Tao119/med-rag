@@ -83,22 +83,22 @@ def question_page(user_path, username):
     st.sidebar.header("Settings")
 
     chat_model = st.sidebar.text_input(
-        "Chat model name", settings["chat_model"], key="chat_model_q")
+        "Chat model name", settings.get("chat_model"), key="chat_model_q")
 
     k = st.sidebar.slider("Documents to retrieve (k)", 1,
-                          20, settings["k"], key="k_slider")
+                          20, settings.get("k"), key="k_slider")
 
     st.sidebar.write("Score threshold")
     score_threshold = st.sidebar.slider(
-        " ", 0.0, 1.0, settings["score_threshold"], step=0.01, key="score_slider")
+        " ", 0.0, 1.0, settings.get("score_threshold"), step=0.01, key="score_slider")
 
     # Embedding model
     embedding_model = st.sidebar.text_input(
-        "Embedding model name", settings["embedding_model"], key="embedding_model_q")
+        "Embedding model name", settings.get("embedding_model"), key="embedding_model_q")
 
     # HuggingFace token
     hf_token = st.sidebar.text_input(
-        "HuggingFace API token", settings["hf_token"], type="password", key="hf_token_q")
+        "HuggingFace API token", settings.get("hf_token"), type="password", key="hf_token_q")
 
     # Save Settings Button
     if st.sidebar.button("Save Settings"):

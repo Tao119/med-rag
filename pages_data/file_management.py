@@ -213,13 +213,13 @@ def file_management_page(user_path):
                 })
 
                 chunk_size = st.number_input(
-                    "Chunk Size", min_value=256, max_value=4096, value=settings["chunk_size"], step=256, key=f"chunk_size_{selected_file}")
+                    "Chunk Size", min_value=256, max_value=4096, value=settings.get("chunk_size"), step=256, key=f"chunk_size_{selected_file}")
                 chunk_overlap = st.slider(
-                    "Chunk Overlap (%)", 0, 50, settings["chunk_overlap"], key=f"chunk_overlap_{selected_file}")
+                    "Chunk Overlap (%)", 0, 50, settings.get("chunk_overlap"), key=f"chunk_overlap_{selected_file}")
                 embedding_model = st.text_input(
-                    "Embedding Model", settings["embedding_model"], key=f"embedding_model_{selected_file}")
+                    "Embedding Model", settings.get("embedding_model"), key=f"embedding_model_{selected_file}")
                 hf_token = st.text_input(
-                    "HuggingFace Token", settings["hf_token"], type="password", key=f"hf_token_{selected_file}")
+                    "HuggingFace Token", settings.get("hf_token"), type="password", key=f"hf_token_{selected_file}")
 
                 # 個別ファイルのベクトル化
                 col_v, col_d = st.columns([2, 1])
