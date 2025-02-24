@@ -17,7 +17,6 @@ load_dotenv()
 azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
 azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION")
-azure_deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 
 
 def load_all_vector_dbs(db_base_dir, embedding_model, hf_token):
@@ -82,6 +81,9 @@ def question_page(user_path, username):
     # --- Sidebar Settings ---
     st.sidebar.header("Settings")
 
+    chat_model = st.sidebar.text_input(
+        "Chat model name", settings["chat_model"], key="chat_model_q")
+
     k = st.sidebar.slider("Documents to retrieve (k)", 1,
                           20, settings["k"], key="k_slider")
 
@@ -100,6 +102,7 @@ def question_page(user_path, username):
     # Save Settings Button
     if st.sidebar.button("Save Settings"):
         settings.update({
+            "chat_model": chat_model,
             "k": k,
             "score_threshold": score_threshold,
             "embedding_model": embedding_model,
@@ -126,7 +129,8 @@ def question_page(user_path, username):
         llm = AzureChatOpenAI(
             azure_endpoint=azure_endpoint,
             api_version=azure_api_version,
-            azure_deployment=azure_deployment_name,
+            azure_deployment=settings.get(
+                "chat_model", os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")),
             api_key=azure_api_key,
             model="gpt-4o"
         )
