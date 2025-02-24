@@ -82,8 +82,32 @@ def question_page(user_path, username):
     # --- Sidebar Settings ---
     st.sidebar.header("Settings")
 
-    chat_model = st.sidebar.text_input(
-        "Chat model name", settings.get("chat_model"), key="chat_model_q")
+    model_list = [
+        "gpt-4o",
+        "gpt-4o-2024-05-13",
+        "gpt-4o-2024-08-06",
+        "gpt-4o-mini",
+        "gpt-4o-mini-2024-07-18",
+        "gpt-4-turbo",
+        "gpt-4-turbo-preview",
+        "gpt-4-turbo-2024-04-09",
+        "gpt-4",
+        "gpt-4-0125-preview",
+        "gpt-4-0613",
+        "gpt-4-1106-preview",
+        "gpt-3.5-turbo",
+        "gpt-3.5-turbo-1106",
+        "gpt-3.5-turbo-16k",
+        "gpt-3.5-turbo-instruct-0914",
+        "gpt-3.5-turbo-0125",
+        "gpt-3.5-turbo-instruct",
+        "chatgpt-4o-latest"
+    ]
+    default_model = settings.get("chat_model", "gpt-4o")
+
+    chat_model = st.sidebar.selectbox(
+        "Chat model name", options=model_list, index=model_list.index(default_model) if default_model in model_list else 0, key="chat_model_q"
+    )
 
     k = st.sidebar.slider("Documents to retrieve (k)", 1,
                           20, settings.get("k"), key="k_slider")
