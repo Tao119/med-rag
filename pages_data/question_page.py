@@ -186,11 +186,11 @@ def question_page(user_path, username):
             "settings": {
                 "k": k,
                 "score_threshold": score_threshold,
-                "embedding_model": embedding_model
+                "embedding_model": embedding_model,
+                "chat_model": chat_model,
             },
             "response": answer,
             "username": username,
-            "chat_model": chat_model,
             "retrieved_docs": [
                 {
                     "content": str(doc.page_content),
