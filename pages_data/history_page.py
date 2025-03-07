@@ -22,9 +22,9 @@ def history_page(user_path):
             )
 
             for idx, entry in enumerate(user_history_sorted):
-                with st.expander(f"Query at {entry['timestamp']} {entry['query'][:30]}{"..." if len(entry['query']) > 30 else ""}"):
+                with st.expander(f"Query at {entry['timestamp']} {entry['query'][:30]}{'...' if len(entry['query']) > 30 else ''}"):
                     st.write(
-                        f"- Chat model: {entry['settings'].get('chat_model') or "gpt-4o"}")
+                        f"- Chat model: {entry['settings'].get('chat_model') or 'gpt-4o'}")
                     st.write(f"**Query:** {entry['query']}")
                     st.write(f"**System Prompt:** {entry['system_prompt']}")
                     st.write("**Settings:**")
@@ -71,9 +71,9 @@ def history_page(user_path):
                 global_history, key=lambda x: datetime.fromisoformat(x['timestamp']), reverse=True)
 
             for idx, entry in enumerate(global_history_sorted):
-                with st.expander(f"Query at {entry['timestamp']} {entry['query'][:30]}{"..." if len(entry['query']) > 30 else ""} by {entry.get('username', 'Unknown User')}"):
+                with st.expander(f"Query at {entry['timestamp']} {entry['query'][:30]}{'...' if len(entry['query']) > 30 else ''} by {entry.get('username', 'Unknown User')}"):
                     st.write(
-                        f"- Chat model: {entry['settings'].get('chat_model') or "gpt-4o"}")
+                        f"- Chat model: {entry['settings'].get('chat_model') or 'gpt-4o'}")
                     st.write(f"**Query:** {entry['query']}")
                     st.write(f"**System Prompt:** {entry['system_prompt']}")
                     st.write("**Settings:**")

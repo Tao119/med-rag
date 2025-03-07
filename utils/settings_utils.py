@@ -9,6 +9,7 @@ load_dotenv()
 def load_settings(user_path):
     settings_file = os.path.join(user_path, "settings.json")
     default_settings = {
+        "source": "OpenAI",
         "chat_model": os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
         "embedding_model": os.getenv("HUGGINGFACE_EMBEDDING_MODEL_NAME"),
         "hf_token": os.getenv("HUGGINGFACE_API_TOKEN"),

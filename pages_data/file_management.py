@@ -138,6 +138,8 @@ def file_management_page(user_path):
     tab1, tab2, tab3 = st.tabs(
         ["📄 List Files", "📤 Upload File", "📝 Create File"])
 
+    selected_file = None
+
     # --- 📄 ファイル一覧と詳細設定 ---
     with tab1:
         col1, col2 = st.columns([1, 3])

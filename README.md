@@ -84,6 +84,9 @@ AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 # HuggingFace Embedding Model
 HUGGINGFACE_EMBEDDING_MODEL_NAME=intfloat/multilingual-e5-small
 HUGGINGFACE_API_TOKEN=your_huggingface_api_token
+
+TOKENIZERS_PARALLELISM=false
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 ### 5️⃣ **Streamlit アプリの起動**
@@ -119,3 +122,28 @@ streamlit run app.py
    - **📄 検索されたドキュメント:** 関連性の高いドキュメントとスコアが表示されます。
 
 ---
+
+## VLLM Sourceを利用する場合
+
+
+GPUサーバーで以下のコードを実行する
+
+
+```bash
+ssh -i ~/.ssh/sshキーのパス -R 8000:localhost:8000 ユーザー名@CPUサーバーのアドレス
+```
+
+さらに、新しいターミナルを開いてGPUサーバーで以下のコードを実行する
+
+```bash
+export HF_HOME=/datadrive/models/
+export LIBRARY_PATH="/usr/local/cuda/lib64/stubs:$LIBRARY_PATH"
+
+vllm serve rinna/deepseek-r1-distill-qwen2.5-bakeneko-32b \
+        --tensor-parallel-size 8
+```
+
+その後、WebでVLLMをSourceから選ぶ
+
+---
+
