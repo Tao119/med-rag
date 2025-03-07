@@ -84,6 +84,9 @@ AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 # HuggingFace Embedding Model
 HUGGINGFACE_EMBEDDING_MODEL_NAME=intfloat/multilingual-e5-small
 HUGGINGFACE_API_TOKEN=your_huggingface_api_token
+
+TOKENIZERS_PARALLELISM=false
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 ### 5️⃣ **Streamlit アプリの起動**
